@@ -1,0 +1,222 @@
+@import 'tailwindcss';
+@plugin '@tailwindcss/typography';
+
+/* ------------------------------------------------------------------ */
+/* Dark mode variant — toggled via a `.dark` class on <html>           */
+/* ------------------------------------------------------------------ */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ------------------------------------------------------------------ */
+/* Brand design tokens — FoodIQ                                  */
+/* Premium homemade Indian tiffin aesthetic: warm, traditional, fresh  */
+/* ------------------------------------------------------------------ */
+:root {
+  /* Raw brand palette */
+  --brand-dark-green: #355e3b;
+  --brand-olive: #607744;
+  --brand-cream: #f9f5ec;
+  --brand-brown: #6d4c41;
+  --brand-golden: #c79a3b;
+  --brand-white: #ffffff;
+  --brand-light-green: #8fae7b;
+  --brand-warm-beige: #ede0c8;
+  --brand-soft-orange: #e08d4b;
+
+  /* Semantic tokens — light mode */
+  --background: var(--brand-cream);
+  --foreground: #2a2118;
+  --card: #ffffff;
+  --card-foreground: #2a2118;
+  --popover: #ffffff;
+  --popover-foreground: #2a2118;
+  --primary: var(--brand-dark-green);
+  --primary-foreground: var(--brand-cream);
+  --secondary: var(--brand-olive);
+  --secondary-foreground: #ffffff;
+  --muted: var(--brand-warm-beige);
+  --muted-foreground: var(--brand-brown);
+  /* `accent` is shadcn's subtle hover/selected surface — NOT the brand gold.
+     Use `--gold` (or the raw `--brand-golden`) for deliberate gold highlights. */
+  --accent: #efe5d2;
+  --accent-foreground: #2a2118;
+  --gold: var(--brand-golden);
+  --gold-foreground: #2a2118;
+  --destructive: #b3432b;
+  --destructive-foreground: #ffffff;
+  --success: #3f7d4e;
+  --success-foreground: #ffffff;
+  --warning: var(--brand-soft-orange);
+  --warning-foreground: #2a2118;
+  --border: #e4d9c4;
+  --input: #e4d9c4;
+  --ring: var(--brand-golden);
+  --radius: 1rem;
+
+  /* Chart palette (Recharts) */
+  --chart-1: var(--brand-dark-green);
+  --chart-2: var(--brand-golden);
+  --chart-3: var(--brand-olive);
+  --chart-4: var(--brand-soft-orange);
+  --chart-5: var(--brand-brown);
+
+  /* Typography */
+  --font-display: 'Fraunces', 'ui-serif', 'Georgia', serif;
+  --font-sans: 'Plus Jakarta Sans', 'ui-sans-serif', system-ui, sans-serif;
+}
+
+.dark {
+  --background: #131c15;
+  --foreground: #f3eee3;
+  --card: #1b2620;
+  --card-foreground: #f3eee3;
+  --popover: #1b2620;
+  --popover-foreground: #f3eee3;
+  --primary: #7fb083;
+  --primary-foreground: #0f1a11;
+  --secondary: #8ba368;
+  --secondary-foreground: #0f1a11;
+  --muted: #263229;
+  --muted-foreground: #cabfa4;
+  --accent: #2f3d33;
+  --accent-foreground: #f3eee3;
+  --gold: #dcb15c;
+  --gold-foreground: #1b1508;
+  --destructive: #e2735c;
+  --destructive-foreground: #200b06;
+  --success: #6cbb7d;
+  --success-foreground: #0c1a0f;
+  --warning: #e6a06a;
+  --warning-foreground: #201206;
+  --border: #2b3a2e;
+  --input: #2b3a2e;
+  --ring: #dcb15c;
+
+  --chart-1: #7fb083;
+  --chart-2: #dcb15c;
+  --chart-3: #8ba368;
+  --chart-4: #e6a06a;
+  --chart-5: #c99b7c;
+}
+
+/* ------------------------------------------------------------------ */
+/* Map semantic tokens into Tailwind's theme so utilities like         */
+/* bg-primary, text-muted-foreground, border-border, etc. work.        */
+/* ------------------------------------------------------------------ */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-gold: var(--gold);
+  --color-gold-foreground: var(--gold-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-brand-dark-green: var(--brand-dark-green);
+  --color-brand-olive: var(--brand-olive);
+  --color-brand-cream: var(--brand-cream);
+  --color-brand-brown: var(--brand-brown);
+  --color-brand-golden: var(--brand-golden);
+  --color-brand-light-green: var(--brand-light-green);
+  --color-brand-warm-beige: var(--brand-warm-beige);
+  --color-brand-soft-orange: var(--brand-soft-orange);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --radius-sm: calc(var(--radius) - 0.5rem);
+  --radius-md: calc(var(--radius) - 0.25rem);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 0.5rem);
+
+  --font-display: var(--font-display);
+  --font-sans: var(--font-sans);
+}
+
+/* ------------------------------------------------------------------ */
+/* Base layer                                                          */
+/* ------------------------------------------------------------------ */
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    color-scheme: light;
+    scroll-behavior: smooth;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-display;
+  }
+
+  /* Reduce motion for users who request it */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Utility layer — glassmorphism helpers reused across cards/nav        */
+/* ------------------------------------------------------------------ */
+@layer utilities {
+  .glass {
+    @apply border border-border/60 bg-card/60 backdrop-blur-xl;
+  }
+
+  .glass-dark {
+    @apply dark:border-border/40 dark:bg-card/40 dark:backdrop-blur-xl;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+}
