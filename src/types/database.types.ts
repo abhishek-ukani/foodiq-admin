@@ -209,6 +209,7 @@ type ThaliOptionGroupRow = {
   is_required: boolean
   display_order: number
   is_active: boolean
+  disabled_item_ids: string[] | null
   created_at: string
 }
 

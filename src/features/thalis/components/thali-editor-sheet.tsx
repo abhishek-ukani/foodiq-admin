@@ -7,15 +7,9 @@ import {
   Edit2,
   Sparkles,
   X,
+  Globe,
+  Pin,
 } from 'lucide-react'
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -41,6 +35,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -49,6 +44,9 @@ import { ImageUpload } from '@/components/common/image-upload'
 import { foodItemSchema, slugify, type FoodItemInput } from '@/features/food-items/schemas/food-item-schema'
 import { useCreateFoodItem, useUpdateFoodItem, useFoodItems } from '@/features/food-items/hooks/use-food-items'
 import { useCategories } from '@/features/menu/hooks/use-categories'
+import { useDailyMenu, useMenuItems } from '@/features/menu/hooks/use-daily-menu'
+import { useThaliComponents, useRemoveThaliComponent } from '../services/thali-components-service'
+import dayjs from 'dayjs'
 import {
   useThaliOptionGroups,
   useCreateThaliOptionGroup,
@@ -115,14 +113,29 @@ export function ThaliEditorSheet({
   const [itemPriceDelta, setItemPriceDelta] = useState(0)
   const [itemIsDefault, setItemIsDefault] = useState(false)
 
+  const [adminMealType, setAdminMealType] = useState<'lunch' | 'dinner'>('lunch')
+
   const { data: optionGroups } = useThaliOptionGroups(thaliItem?.id)
   const { data: foodItemsCatalog } = useFoodItems()
+  const { data: globalComponents } = useThaliComponents()
+  const todayStr = dayjs().format('YYYY-MM-DD')
+  const { data: dailyMenu } = useDailyMenu(todayStr, adminMealType)
+  const { data: dailyMenuItems } = useMenuItems(dailyMenu?.id)
+
   const createGroup = useCreateThaliOptionGroup()
   const updateGroup = useUpdateThaliOptionGroup()
   const deleteGroup = useDeleteThaliOptionGroup()
   const createItem = useCreateThaliOptionItem()
   const updateItem = useUpdateThaliOptionItem()
   const deleteItem = useDeleteThaliOptionItem()
+  const removeGlobalComponent = useRemoveThaliComponent()
+
+  const handleRemoveGlobalComponent = (foodItemId: string) => {
+    const comp = globalComponents?.find((c) => c.food_item_id === foodItemId)
+    if (comp) {
+      removeGlobalComponent.mutate(comp.id)
+    }
+  }
 
   const form = useForm<FoodItemInput>({
     resolver: zodResolver(foodItemSchema),
@@ -198,7 +211,7 @@ export function ThaliEditorSheet({
       setGroupName(grp.name)
       setGroupDescription(grp.description || '')
       setGroupType(grp.group_type as any)
-      setTargetCategoryType((grp as any).target_category_type ?? 'sabji')
+      setTargetCategoryType((grp as any).target_category_type ?? '')
       setTargetCategoryId((grp as any).target_category_id ?? '')
       setMinSelect(grp.min_select)
       setMaxSelect(grp.max_select)
@@ -208,7 +221,7 @@ export function ThaliEditorSheet({
       setGroupName('')
       setGroupDescription('')
       setGroupType('daily_menu_choice')
-      setTargetCategoryType('sabji')
+      setTargetCategoryType('')
       setTargetCategoryId('')
       setMinSelect(1)
       setMaxSelect(1)
@@ -220,8 +233,19 @@ export function ThaliEditorSheet({
   const handleSaveGroup = () => {
     if (!thaliItem?.id || !groupName.trim()) return
 
-    const targetCat = targetCategoryType || 'sabji'
-    const targetCatId = targetCategoryId || null
+    const inferCatType = (name: string) => {
+      const lower = name.toLowerCase()
+      if (lower.includes('sabji') || lower.includes('sabzi') || lower.includes('shabji')) return 'sabji'
+      if (lower.includes('roti') || lower.includes('bread') || lower.includes('bhakhri')) return 'bread'
+      if (lower.includes('sweet') || lower.includes('mithai')) return 'sweet'
+      if (lower.includes('snack') || lower.includes('farsan')) return 'snack'
+      if (lower.includes('rice') || lower.includes('bhat') || lower.includes('khichdi') || lower.includes('dal')) return 'rice'
+      return 'general'
+    }
+
+    const selectedCatObj = categories?.find((c) => c.id === targetCategoryId)
+    const targetCatId = targetCategoryId && targetCategoryId !== 'none' ? targetCategoryId : null
+    const targetCat = (selectedCatObj as any)?.category_type || targetCategoryType || inferCatType(groupName) || 'general'
 
     if (editingGroup) {
       updateGroup.mutate(
@@ -281,15 +305,109 @@ export function ThaliEditorSheet({
     )
   }
 
+  const getMatchingGlobalOrDailyItems = (grp: ThaliOptionGroupWithItems) => {
+    if (!foodItemsCatalog) return []
+
+    const globalList = Array.isArray(globalComponents) ? globalComponents : []
+    const dailyList = Array.isArray(dailyMenuItems) ? dailyMenuItems : []
+
+    const globalFoodItemIds = new Set(globalList.filter((c) => (c as any).is_active !== false).map((c) => c.food_item_id))
+    const dailyFoodItemIds = new Set(
+      dailyList
+        .filter((mi) => (mi as any).is_thali_option !== false)
+        .map((mi) => mi.food_item_id)
+    )
+
+    // Automatically include items that are present in today's Daily Items Manager list
+    const activeCatalog = foodItemsCatalog.filter((item) => dailyFoodItemIds.has(item.id))
+
+    const targetCatId = (grp as any).target_category_id
+    const targetCatType = (grp as any).target_category_type
+    const groupNameLower = grp.name.toLowerCase()
+
+    return activeCatalog.filter((item) => {
+      // 1. Direct Category ID match
+      if (targetCatId && item.category_id === targetCatId) return true
+
+      const catType = (item.categories as any)?.category_type || ''
+      const catName = item.categories?.name?.toLowerCase() || ''
+      const itemName = item.name.toLowerCase()
+
+      // 2. Direct Category Type match
+      if (targetCatType && catType === targetCatType) return true
+
+      // 3. Category/Name matching by group type
+      if (
+        groupNameLower.includes('sabji') ||
+        groupNameLower.includes('shabji') ||
+        groupNameLower.includes('sabzi')
+      ) {
+        return catType === 'sabji' || catName.includes('sabji') || catName.includes('sabzi') || catName.includes('shabji')
+      }
+
+      if (
+        groupNameLower.includes('roti') ||
+        groupNameLower.includes('bread') ||
+        groupNameLower.includes('bhakhri')
+      ) {
+        return (
+          catType === 'bread' ||
+          catName.includes('bread') ||
+          catName.includes('roti') ||
+          catName.includes('rotis') ||
+          itemName.includes('roti') ||
+          itemName.includes('rotli') ||
+          itemName.includes('bhakhri') ||
+          itemName.includes('puri')
+        )
+      }
+
+      if (groupNameLower.includes('sweet') || groupNameLower.includes('mithai')) {
+        return catType === 'sweet' || catName.includes('sweet') || catName.includes('mithai')
+      }
+
+      if (groupNameLower.includes('snack') || groupNameLower.includes('farsan')) {
+        return catType === 'snack' || catName.includes('snack') || catName.includes('farsan') || itemName.includes('fryums')
+      }
+
+      if (groupNameLower.includes('accompaniment') || groupNameLower.includes('side')) {
+        return (
+          catType === 'accompaniment' ||
+          catName.includes('accompaniment') ||
+          catName.includes('sambhar') ||
+          catName.includes('salad') ||
+          catName.includes('pickle') ||
+          itemName.includes('jaggery') ||
+          itemName.includes('gud')
+        )
+      }
+
+      return false
+    })
+  }
+
+  const handleToggleDisableDailyItem = (grp: ThaliOptionGroupWithItems, itemId: string) => {
+    const currentDisabled: string[] = (grp as any).disabled_item_ids || []
+    const isDisabled = currentDisabled.includes(itemId)
+    const newDisabled = isDisabled
+      ? currentDisabled.filter((id) => id !== itemId)
+      : [...currentDisabled, itemId]
+
+    updateGroup.mutate({
+      id: grp.id,
+      input: { disabled_item_ids: newDisabled } as any,
+    })
+  }
+
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-lg">
-        <SheetHeader className="pb-2">
-          <SheetTitle className="text-lg font-semibold">{isEditing ? `Edit ${thaliItem?.name}` : 'New Thali'}</SheetTitle>
-          <SheetDescription className="text-xs">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto p-6 flex flex-col gap-4">
+        <DialogHeader className="pb-1">
+          <DialogTitle className="text-lg font-semibold">{isEditing ? `Edit ${thaliItem?.name}` : 'New Thali'}</DialogTitle>
+          <DialogDescription className="text-xs">
             {isEditing ? 'Update pricing, details, and customization options.' : 'Add a new Thali to your catalog.'}
-          </SheetDescription>
-        </SheetHeader>
+          </DialogDescription>
+        </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="px-4 pb-6 space-y-5">
           <TabsList className="grid w-full grid-cols-2">
@@ -414,7 +532,7 @@ export function ThaliEditorSheet({
                   />
                 </div>
 
-                <SheetFooter className="px-0 pt-2">
+                <DialogFooter className="px-0 pt-2">
                   <Button type="submit" disabled={isSubmitting} className="w-full">
                     {isSubmitting
                       ? 'Saving…'
@@ -422,23 +540,52 @@ export function ThaliEditorSheet({
                         ? 'Save & Continue to Options →'
                         : 'Create Thali & Setup Options →'}
                   </Button>
-                </SheetFooter>
+                </DialogFooter>
               </form>
             </Form>
           </TabsContent>
 
           {/* TAB 2: CUSTOMIZATION OPTIONS */}
           <TabsContent value="customizations" className="space-y-4 pt-1">
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-muted/40 p-3 rounded-xl border">
               <div>
                 <h3 className="text-sm font-semibold">Customization Groups</h3>
                 <p className="text-xs text-muted-foreground">
                   Manage sub-category options for this Thali.
                 </p>
               </div>
-              <Button size="sm" className="h-8 gap-1 text-xs" onClick={() => handleOpenGroupDialog()}>
-                <Plus className="size-3.5" /> Add Group
-              </Button>
+
+              <div className="flex items-center gap-2">
+                {/* Meal Type Preview Toggle */}
+                <div className="flex items-center gap-1 bg-muted p-1 rounded-lg border text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setAdminMealType('lunch')}
+                    className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                      adminMealType === 'lunch'
+                        ? 'bg-background shadow-xs text-foreground font-bold'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    🍱 Lunch
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAdminMealType('dinner')}
+                    className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                      adminMealType === 'dinner'
+                        ? 'bg-background shadow-xs text-foreground font-bold'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    🍲 Dinner
+                  </button>
+                </div>
+
+                <Button size="sm" className="h-8 gap-1 text-xs" onClick={() => handleOpenGroupDialog()}>
+                  <Plus className="size-3.5" /> Add Group
+                </Button>
+              </div>
             </div>
 
             {!optionGroups?.length ? (
@@ -454,7 +601,7 @@ export function ThaliEditorSheet({
             ) : (
               <div className="space-y-4">
                 {optionGroups.map((grp) => (
-                  <div key={grp.id} className="rounded-xl border bg-card p-4 space-y-3 shadow-xs">
+                  <div key={grp.id} className="rounded-xl border bg-card p-4 space-y-3.5 shadow-xs">
                     {/* Header Row */}
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -467,7 +614,7 @@ export function ThaliEditorSheet({
                               : 'bg-primary/10 text-primary text-[11px] font-medium'
                           }
                         >
-                          {grp.group_type === 'daily_menu_choice' ? 'Daily Sabji' : 'Static Choice'}
+                          {grp.group_type === 'daily_menu_choice' ? 'Daily Menu Choice' : 'Static Choice'}
                         </Badge>
                         <Badge variant="outline" className="text-[11px] font-normal text-muted-foreground">
                           Select {grp.max_select}
@@ -494,48 +641,121 @@ export function ThaliEditorSheet({
                       </div>
                     </div>
 
-                    {grp.group_type === 'daily_menu_choice' ? (
-                      <p className="text-xs text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 p-2.5 rounded-lg flex items-center gap-2">
-                        <Sparkles className="size-4 shrink-0 text-amber-600" />
-                        <span>Populates today's Sabjis automatically from Daily Menu page.</span>
-                      </p>
-                    ) : (
-                      <div className="space-y-2 pt-1 border-t">
-                        <div className="flex items-center justify-between text-xs text-muted-foreground">
-                          <div className="space-y-0.5">
-                            <span className="font-semibold text-foreground">
-                              Option Items ({grp.thali_option_items.length})
-                            </span>
-                            <p className="text-[11px]">
-                              Options linked to catalog food items update availability automatically.
-                            </p>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 text-xs text-primary hover:text-primary gap-1 p-0 hover:bg-transparent shrink-0"
-                            onClick={() => handleOpenItemDialog(grp.id)}
-                          >
-                            <Plus className="size-3" /> Add
-                          </Button>
+                    {/* SECTION 1: GLOBAL / DAILY ITEMS MANAGEMENT */}
+                    {(grp.group_type === 'daily_menu_choice' || getMatchingGlobalOrDailyItems(grp).length > 0) && (
+                      <div className="space-y-2 border-t pt-2.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-semibold text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
+                            <Sparkles className="size-3.5 text-amber-600" />
+                            Global / Daily Items for this Thali
+                          </span>
+                          <span className="text-[10px] text-muted-foreground">Toggle to enable/disable</span>
                         </div>
 
+                        {(() => {
+                          const matchingItems = getMatchingGlobalOrDailyItems(grp)
+                          const disabledIds: string[] = (grp as any).disabled_item_ids || []
+
+                          if (!matchingItems.length) {
+                            return (
+                              <p className="text-xs text-muted-foreground italic bg-muted/30 p-2 rounded">
+                                Populates today's items automatically from Daily Menu.
+                              </p>
+                            )
+                          }
+
+                          return (
+                            <div className="space-y-1.5">
+                              {matchingItems.map((item) => {
+                                const isDisabled = disabledIds.includes(item.id)
+                                return (
+                                  <div
+                                    key={item.id}
+                                    className={`flex items-center justify-between p-2 rounded-lg border text-xs transition-colors ${
+                                      isDisabled
+                                        ? 'bg-muted/40 border-dashed opacity-60'
+                                        : 'bg-amber-50/50 dark:bg-amber-950/20 border-amber-200/60'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                                      <span className="font-medium text-foreground truncate">{item.name}</span>
+                                      <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300 px-1.5 py-0 flex items-center gap-1">
+                                        <Globe className="size-2.5" /> Global Daily Item
+                                      </Badge>
+                                      {item.categories?.name && (
+                                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-muted-foreground">
+                                          {item.categories.name}
+                                        </Badge>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                      <span className={`text-[10px] font-medium ${isDisabled ? 'text-destructive' : 'text-emerald-700'}`}>
+                                        {isDisabled ? 'Disabled for this Thali' : 'Enabled'}
+                                      </span>
+                                      <Switch
+                                        checked={!isDisabled}
+                                        onCheckedChange={() => handleToggleDisableDailyItem(grp, item.id)}
+                                      />
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="size-6 text-destructive hover:bg-destructive/10 ml-1"
+                                        title="Remove from Global Daily Items"
+                                        onClick={() => handleRemoveGlobalComponent(item.id)}
+                                      >
+                                        <Trash2 className="size-3" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          )
+                        })()}
+                      </div>
+                    )}
+
+                    {/* SECTION 2: MANUAL OPTION ITEMS */}
+                    <div className="space-y-2 border-t pt-2.5">
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <div className="space-y-0.5">
+                          <span className="font-semibold text-foreground flex items-center gap-1.5">
+                            <Pin className="size-3.5 text-sky-600" />
+                            Thali-Specific Manual Items ({grp.thali_option_items.length})
+                          </span>
+                          <p className="text-[11px]">
+                            Items added specifically for this individual Thali package.
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs text-primary hover:text-primary gap-1 px-2 shrink-0 border border-primary/20 hover:bg-primary/5"
+                          onClick={() => handleOpenItemDialog(grp.id)}
+                        >
+                          <Plus className="size-3.5" /> Add Manual Item
+                        </Button>
+                      </div>
+
+                      {grp.thali_option_items.length === 0 ? (
+                        <p className="text-xs text-muted-foreground italic">No manual options added for this Thali.</p>
+                      ) : (
                         <div className="space-y-2 pt-1">
                           {grp.thali_option_items.map((opt: any) => (
                             <div
                               key={opt.id}
                               className={`flex items-center justify-between gap-2 rounded-lg border p-2.5 text-xs transition-colors ${
-                                opt.is_active ? 'bg-card' : 'bg-muted/50 border-dashed opacity-75'
+                                opt.is_active ? 'bg-sky-50/30 dark:bg-sky-950/10 border-sky-200/60' : 'bg-muted/50 border-dashed opacity-75'
                               }`}
                             >
                               <div className="flex items-center gap-2 min-w-0 flex-wrap">
                                 <span className="font-semibold text-foreground truncate">{opt.food_items?.name || opt.label}</span>
-                                {opt.food_items?.name && opt.label !== opt.food_items.name && (
-                                  <span className="text-[11px] text-muted-foreground">({opt.label})</span>
-                                )}
-                                {opt.linked_food_item_id && (
-                                  <Badge variant="outline" className="text-[10px] text-emerald-700 bg-emerald-50 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800 px-1.5 py-0">
-                                    Catalog Linked
+                                <Badge variant="outline" className="text-[10px] bg-sky-50 text-sky-800 border-sky-300 dark:bg-sky-950 dark:text-sky-300 px-1.5 py-0 flex items-center gap-1">
+                                  <Pin className="size-2.5" /> Added to this Thali
+                                </Badge>
+                                {opt.food_items?.categories?.name && (
+                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-muted-foreground">
+                                    {opt.food_items.categories.name}
                                   </Badge>
                                 )}
                                 {opt.price_delta > 0 && (
@@ -561,20 +781,22 @@ export function ThaliEditorSheet({
                                   />
                                 </div>
 
-                                <button
+                                <Button
                                   type="button"
-                                  className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded p-1 transition-colors"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="size-7 text-destructive hover:bg-destructive/10"
                                   onClick={() => deleteItem.mutate(opt.id)}
-                                  title="Remove item"
+                                  title="Delete item"
                                 >
-                                  <X className="size-3.5" />
-                                </button>
+                                  <Trash2 className="size-3.5" />
+                                </Button>
                               </div>
                             </div>
                           ))}
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -587,7 +809,7 @@ export function ThaliEditorSheet({
             </div>
           </TabsContent>
         </Tabs>
-      </SheetContent>
+      </DialogContent>
 
       {/* Group Create/Edit Dialog */}
       <Dialog open={groupDialogOpen} onOpenChange={setGroupDialogOpen}>
@@ -622,11 +844,12 @@ export function ThaliEditorSheet({
 
             <div className="space-y-1">
               <Label className="text-xs">Source Category</Label>
-              <Select value={targetCategoryId} onValueChange={(v) => setTargetCategoryId(v)}>
+              <Select value={targetCategoryId || 'none'} onValueChange={(v) => setTargetCategoryId(v === 'none' ? '' : v)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select Category (e.g. Sabji, Breads, Snacks)..." />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="none">None (No Auto Category)</SelectItem>
                   {categories?.map((cat) => (
                     <SelectItem key={cat.id} value={cat.id}>
                       {cat.name}
@@ -747,6 +970,6 @@ export function ThaliEditorSheet({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Sheet>
+    </Dialog>
   )
 }

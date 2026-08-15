@@ -85,6 +85,7 @@ export function useAddThaliComponent() {
     }) => addThaliComponent(food_item_id, category_type),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: QUERY_KEY })
+      qc.invalidateQueries({ queryKey: ['admin', 'thali-option-groups'] })
       toast.success('Item added to global Thali components')
     },
     onError: (err: Error) => toast.error(err.message),
@@ -98,6 +99,7 @@ export function useToggleThaliComponent() {
       toggleThaliComponent(id, is_active),
     onSuccess: (_, { is_active }) => {
       qc.invalidateQueries({ queryKey: QUERY_KEY })
+      qc.invalidateQueries({ queryKey: ['admin', 'thali-option-groups'] })
       toast.success(is_active ? 'Item activated for all Thalis' : 'Item marked Out of Stock for all Thalis')
     },
     onError: (err: Error) => toast.error(err.message),
@@ -110,6 +112,7 @@ export function useRemoveThaliComponent() {
     mutationFn: (id: string) => removeThaliComponent(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: QUERY_KEY })
+      qc.invalidateQueries({ queryKey: ['admin', 'thali-option-groups'] })
       toast.success('Item removed from global Thali components')
     },
     onError: (err: Error) => toast.error(err.message),
