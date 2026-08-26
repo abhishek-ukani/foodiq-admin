@@ -383,8 +383,8 @@ type OrderRow = {
   branch_id: string
   user_id: string
   status: OrderStatus
-  payment_method: PaymentMethod
-  payment_status: PaymentStatus
+  payment_method: PaymentMethod | null
+  payment_status: PaymentStatus | null
   payment_reference: string | null
   payment_proof_url: string | null
   paid_at: string | null
@@ -393,14 +393,14 @@ type OrderRow = {
   delivery_slot_label: string | null
   delivery_area_id: string | null
   address_id: string | null
-  contact_name: string
-  contact_phone: string
-  address_line1: string
+  contact_name: string | null
+  contact_phone: string | null
+  address_line1: string | null
   address_line2: string | null
   landmark: string | null
-  city: string
-  state: string
-  pincode: string
+  city: string | null
+  state: string | null
+  pincode: string | null
   subtotal: number
   delivery_charge: number
   discount_amount: number
