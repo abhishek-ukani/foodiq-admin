@@ -126,9 +126,8 @@ export function DailyThaliChoicesCard() {
   const [meal, setMeal] = useState<MealType>('lunch')
   const [selectedItemId, setSelectedItemId] = useState<string>('')
 
-  const lockStatus = checkMenuEditLock(date, meal)
-
   const { data: menu, isPending: menuPending } = useDailyMenu(date, meal)
+  const lockStatus = checkMenuEditLock(date, meal, menu?.cutoff_time)
   const { data: menuItems, isPending: itemsPending } = useMenuItems(menu?.id)
   const { data: allFoodItems } = useFoodItems()
   const { data: globalComponents } = useThaliComponents()
@@ -395,6 +394,10 @@ export function DailyThaliChoicesCard() {
                       className="h-8 w-8 text-destructive hover:bg-destructive/10"
                       aria-label="Remove item"
                       onClick={() => {
+                        const existingGlobal = globalByFoodItemId.get(item.food_item_id)
+                        if (existingGlobal) {
+                          removeFromGlobal.mutate(existingGlobal.id)
+                        }
                         if (item.is_standalone_sale) {
                           toggleThaliOption.mutate({ id: item.id, is_thali_option: false })
                         } else {

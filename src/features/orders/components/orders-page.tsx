@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
-import dayjs from 'dayjs'
 import { Plus, Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -43,7 +42,8 @@ export function OrdersPage() {
         (o) =>
           o.order_number.toLowerCase().includes(query) ||
           o.contact_name.toLowerCase().includes(query) ||
-          o.contact_phone.includes(query),
+          o.contact_phone.includes(query) ||
+          o.order_items?.some((item) => item.item_name.toLowerCase().includes(query)),
       )
     }
     return result
@@ -63,14 +63,22 @@ export function OrdersPage() {
         ),
       },
       {
-        accessorKey: 'placed_at',
-        header: 'Placed',
-        cell: ({ row }) => dayjs(row.original.placed_at).format('D MMM, h:mm A'),
-      },
-      {
-        accessorKey: 'delivery_date',
-        header: 'Delivery',
-        cell: ({ row }) => `${dayjs(row.original.delivery_date).format('D MMM')} · ${row.original.delivery_slot_label ?? ''}`,
+        id: 'items',
+        header: 'Items',
+        cell: ({ row }) => {
+          const items = row.original.order_items ?? (row.original as any).items ?? []
+          if (!items.length) return <span className="text-muted-foreground text-xs">No items</span>
+          return (
+            <div className="space-y-1">
+              {items.map((item: any, idx: number) => (
+                <div key={item.id ?? idx} className="text-sm">
+                  <span className="font-medium">{item.item_name || item.name || 'Item'}</span>
+                  <span className="text-muted-foreground ml-1.5 text-xs font-semibold">× {item.quantity ?? 1}</span>
+                </div>
+              ))}
+            </div>
+          )
+        },
       },
       {
         accessorKey: 'status',

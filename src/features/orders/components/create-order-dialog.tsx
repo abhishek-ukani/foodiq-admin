@@ -39,7 +39,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useCustomerAddresses, useCustomers } from '@/features/customers/hooks/use-customers'
 import { useActiveDeliverySlots, useCreateAdminOrder, useFoodItemsForOrder } from '@/features/orders/hooks/use-orders'
-import type { FoodItemForOrder } from '@/features/orders/services/orders-service'
+import type { FoodItemForOrder, ResolvedAdminOptionGroup } from '@/features/orders/services/orders-service'
+import { fetchThaliOptionGroupsForAdminOrder } from '@/features/orders/services/orders-service'
 import { supabase } from '@/lib/supabase'
 import { CURRENCY_SYMBOL } from '@/constants'
 import type { OrderStatus, PaymentMethod, PaymentStatus } from '@/types/database.types'
@@ -120,14 +121,19 @@ export function CreateOrderDialog({
   const [deliveryCharge, setDeliveryCharge] = useState<number>(30)
   const [discountAmount, setDiscountAmount] = useState<number>(0)
   const [taxAmount, setTaxAmount] = useState<number>(0)
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash')
-  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('paid')
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | ''>('')
+  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus | ''>('')
   const [paymentReference, setPaymentReference] = useState('')
   const [orderStatus, setOrderStatus] = useState<OrderStatus>('accepted')
   const [specialInstructions, setSpecialInstructions] = useState('')
 
+  // Address optional toggle
+  const [skipAddress, setSkipAddress] = useState(false)
+
   // Item Customization Modal / Sub-state
   const [customizingItem, setCustomizingItem] = useState<FoodItemForOrder | null>(null)
+  const [resolvedThaliGroups, setResolvedThaliGroups] = useState<ResolvedAdminOptionGroup[]>([])
+  const [isLoadingThaliGroups, setIsLoadingThaliGroups] = useState(false)
   const [tempOptions, setTempOptions] = useState<Record<string, { label: string; price_delta: number }>>({})
   const [tempAddons, setTempAddons] = useState<Record<string, boolean>>({})
   const [tempNotes, setTempNotes] = useState('')
@@ -252,22 +258,15 @@ export function CreateOrderDialog({
   }, [foodItems, selectedCategory, itemSearch])
 
   // Handle opening customization for an item
-  const openCustomizer = (item: FoodItemForOrder) => {
+  const openCustomizer = async (item: FoodItemForOrder) => {
     setCustomizingItem(item)
-    const initialOpts: Record<string, { label: string; price_delta: number }> = {}
-    const initialAddons: Record<string, boolean> = {}
-
-    // Default option selections for Thali Option Groups
-    if (item.thali_option_groups) {
-      item.thali_option_groups.forEach((grp) => {
-        const defaultItem = grp.thali_option_items.find((i) => i.is_default) || grp.thali_option_items[0]
-        if (defaultItem) {
-          initialOpts[grp.id] = { label: defaultItem.label, price_delta: Number(defaultItem.price_delta || 0) }
-        }
-      })
-    }
+    setResolvedThaliGroups([])
+    setTempOptions({})
+    setTempAddons({})
+    setTempNotes('')
 
     // Default item customizations (add-ons)
+    const initialAddons: Record<string, boolean> = {}
     if (item.item_customizations) {
       item.item_customizations.forEach((cust) => {
         if (cust.is_default) {
@@ -275,10 +274,31 @@ export function CreateOrderDialog({
         }
       })
     }
-
-    setTempOptions(initialOpts)
     setTempAddons(initialAddons)
-    setTempNotes('')
+
+    // For thali items: dynamically fetch option groups (daily menu driven)
+    if (item.kind === 'thali' || (item.thali_option_groups && item.thali_option_groups.length > 0)) {
+      setIsLoadingThaliGroups(true)
+      try {
+        const dynamicGroups = await fetchThaliOptionGroupsForAdminOrder(item.id, deliveryDate)
+        setResolvedThaliGroups(dynamicGroups)
+
+        // Auto-select defaults
+        const initialOpts: Record<string, { label: string; price_delta: number }> = {}
+        dynamicGroups.forEach((grp) => {
+          const defaultOpt = grp.options.find((o) => o.is_default) || grp.options[0]
+          if (defaultOpt) {
+            initialOpts[grp.id] = { label: defaultOpt.label, price_delta: defaultOpt.price_delta }
+          }
+        })
+        setTempOptions(initialOpts)
+      } catch (err) {
+        console.error('Failed to load thali options:', err)
+        toast.error('Could not load thali options. Try again.')
+      } finally {
+        setIsLoadingThaliGroups(false)
+      }
+    }
   }
 
   // Add customized item to cart
@@ -288,27 +308,25 @@ export function CreateOrderDialog({
     const selectedOptionsList: { group_name: string; option_name: string; price_delta: number }[] = []
     let custTotal = 0
 
-    // Validate required option groups
-    if (customizingItem.thali_option_groups) {
-      for (const grp of customizingItem.thali_option_groups) {
-        if (grp.is_required && !tempOptions[grp.id]) {
-          toast.error(`Please make a selection for '${grp.name}'`)
-          return
-        }
+    // Validate required thali option groups (dynamic resolved groups)
+    for (const grp of resolvedThaliGroups) {
+      if (grp.is_required && !tempOptions[grp.id]) {
+        toast.error(`Please make a selection for '${grp.name}'`)
+        return
       }
-
-      customizingItem.thali_option_groups.forEach((grp) => {
-        const sel = tempOptions[grp.id]
-        if (sel) {
-          selectedOptionsList.push({
-            group_name: grp.name,
-            option_name: sel.label,
-            price_delta: sel.price_delta,
-          })
-          custTotal += sel.price_delta
-        }
-      })
     }
+
+    resolvedThaliGroups.forEach((grp) => {
+      const sel = tempOptions[grp.id]
+      if (sel) {
+        selectedOptionsList.push({
+          group_name: grp.name,
+          option_name: sel.label,
+          price_delta: sel.price_delta,
+        })
+        custTotal += sel.price_delta
+      }
+    })
 
     // Add selected standalone add-ons
     if (customizingItem.item_customizations) {
@@ -343,6 +361,7 @@ export function CreateOrderDialog({
 
     setCartItems((prev) => [...prev, newCartItem])
     setCustomizingItem(null)
+    setResolvedThaliGroups([])
   }
 
   // Directly add item if no options exist
@@ -420,10 +439,6 @@ export function CreateOrderDialog({
       toast.error('Please select a customer')
       return
     }
-    if (!contactName || !contactPhone || !addressLine1 || !city || !pincode) {
-      toast.error('Please complete all required delivery address fields')
-      return
-    }
     if (cartItems.length === 0) {
       toast.error('Please add at least one item to the cart')
       return
@@ -433,21 +448,21 @@ export function CreateOrderDialog({
 
     await createOrder.mutateAsync({
       userId: selectedCustomerId,
-      contactName,
-      contactPhone,
-      addressId: addressMode === 'saved' ? selectedAddressId : undefined,
-      addressLine1,
+      contactName: contactName || undefined,
+      contactPhone: contactPhone || undefined,
+      addressId: addressMode === 'saved' ? (selectedAddressId || undefined) : undefined,
+      addressLine1: addressLine1 || undefined,
       addressLine2: addressLine2 || undefined,
       landmark: landmark || undefined,
-      city,
-      state,
-      pincode,
+      city: city || undefined,
+      state: state || undefined,
+      pincode: pincode || undefined,
       saveNewAddress: addressMode === 'new' && saveNewAddress,
       deliveryDate,
       deliverySlotId: deliverySlotId || undefined,
       deliverySlotLabel: selectedSlotObj ? `${selectedSlotObj.label} (${selectedSlotObj.start_time.slice(0, 5)} - ${selectedSlotObj.end_time.slice(0, 5)})` : undefined,
-      paymentMethod,
-      paymentStatus,
+      paymentMethod: paymentMethod || undefined,
+      paymentStatus: paymentStatus || undefined,
       paymentReference: paymentReference || undefined,
       orderStatus,
       subtotal,
@@ -571,32 +586,64 @@ export function CreateOrderDialog({
                   <CardTitle className="text-sm font-semibold flex items-center gap-2 text-foreground">
                     <MapPin className="size-4 text-primary" />
                     Step 2: Delivery Address
+                    <span className="text-muted-foreground font-normal text-[11px]">(Optional)</span>
                   </CardTitle>
-                  {customerAddresses && customerAddresses.length > 0 && (
-                    <div className="flex items-center gap-1.5">
-                      <Button
-                        type="button"
-                        variant={addressMode === 'saved' ? 'default' : 'outline'}
-                        size="xs"
-                        onClick={() => setAddressMode('saved')}
-                      >
-                        Saved ({customerAddresses.length})
-                      </Button>
-                      <Button
-                        type="button"
-                        variant={addressMode === 'new' ? 'default' : 'outline'}
-                        size="xs"
-                        onClick={() => {
-                          setAddressMode('new')
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      type="button"
+                      variant={skipAddress ? 'default' : 'outline'}
+                      size="xs"
+                      className={skipAddress ? 'text-[11px] bg-muted text-muted-foreground hover:bg-muted/80' : 'text-[11px]'}
+                      onClick={() => {
+                        setSkipAddress((v) => !v)
+                        if (!skipAddress) {
+                          setContactName('')
+                          setContactPhone('')
+                          setAddressLine1('')
+                          setAddressLine2('')
+                          setLandmark('')
+                          setCity('')
+                          setState('')
+                          setPincode('')
                           setSelectedAddressId('')
-                        }}
-                      >
-                        + New
-                      </Button>
-                    </div>
-                  )}
+                        }
+                      }}
+                    >
+                      {skipAddress ? 'Add Address' : 'Skip for Now'}
+                    </Button>
+                    {!skipAddress && customerAddresses && customerAddresses.length > 0 && (
+                      <>
+                        <Button
+                          type="button"
+                          variant={addressMode === 'saved' ? 'default' : 'outline'}
+                          size="xs"
+                          onClick={() => setAddressMode('saved')}
+                        >
+                          Saved ({customerAddresses.length})
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={addressMode === 'new' ? 'default' : 'outline'}
+                          size="xs"
+                          onClick={() => {
+                            setAddressMode('new')
+                            setSelectedAddressId('')
+                          }}
+                        >
+                          + New
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </div>
               </CardHeader>
+              {skipAddress ? (
+                <div className="px-6 pb-4">
+                  <p className="text-xs text-muted-foreground italic">
+                    Address skipped — order will be saved without a delivery address.
+                  </p>
+                </div>
+              ) : (
               <CardContent className="space-y-4">
                 {addressMode === 'saved' && customerAddresses && customerAddresses.length > 0 ? (
                   <div className="space-y-1.5">
@@ -636,7 +683,7 @@ export function CreateOrderDialog({
                 {/* Form inputs with spacious layout */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                   <div className="space-y-1">
-                    <Label className="text-xs font-medium">Recipient Name *</Label>
+                    <Label className="text-xs font-medium">Recipient Name</Label>
                     <Input
                       value={contactName}
                       onChange={(e) => setContactName(e.target.value)}
@@ -645,7 +692,7 @@ export function CreateOrderDialog({
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs font-medium">Recipient Phone *</Label>
+                    <Label className="text-xs font-medium">Recipient Phone</Label>
                     <Input
                       value={contactPhone}
                       onChange={(e) => setContactPhone(e.target.value)}
@@ -654,7 +701,7 @@ export function CreateOrderDialog({
                     />
                   </div>
                   <div className="sm:col-span-2 space-y-1">
-                    <Label className="text-xs font-medium">Address Line 1 *</Label>
+                    <Label className="text-xs font-medium">Address Line 1</Label>
                     <Input
                       value={addressLine1}
                       onChange={(e) => setAddressLine1(e.target.value)}
@@ -681,7 +728,7 @@ export function CreateOrderDialog({
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs font-medium">City *</Label>
+                    <Label className="text-xs font-medium">City</Label>
                     <Input
                       value={city}
                       onChange={(e) => setCity(e.target.value)}
@@ -690,7 +737,7 @@ export function CreateOrderDialog({
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs font-medium">Pincode *</Label>
+                    <Label className="text-xs font-medium">Pincode</Label>
                     <Input
                       value={pincode}
                       onChange={(e) => setPincode(e.target.value)}
@@ -714,6 +761,7 @@ export function CreateOrderDialog({
                   )}
                 </div>
               </CardContent>
+              )}
             </Card>
 
             {/* STEP 3: SCHEDULE & SLOT */}
@@ -996,24 +1044,26 @@ export function CreateOrderDialog({
               <div className="bg-card p-4 rounded-xl border space-y-3 text-xs shadow-2xs">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <Label className="text-xs font-medium">Payment Method</Label>
-                    <Select value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as PaymentMethod)}>
+                    <Label className="text-xs font-medium">Payment Method <span className="text-muted-foreground font-normal">(Optional)</span></Label>
+                    <Select value={paymentMethod} onValueChange={(v) => setPaymentMethod(v === '__none__' ? '' : v as PaymentMethod)}>
                       <SelectTrigger className="h-9 text-xs">
-                        <SelectValue />
+                        <SelectValue placeholder="Not specified" />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="__none__">Not specified</SelectItem>
                         <SelectItem value="cash">Cash on Delivery</SelectItem>
                         <SelectItem value="upi">UPI / Online</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs font-medium">Payment Status</Label>
-                    <Select value={paymentStatus} onValueChange={(v) => setPaymentStatus(v as PaymentStatus)}>
+                    <Label className="text-xs font-medium">Payment Status <span className="text-muted-foreground font-normal">(Optional)</span></Label>
+                    <Select value={paymentStatus} onValueChange={(v) => setPaymentStatus(v === '__none__' ? '' : v as PaymentStatus)}>
                       <SelectTrigger className="h-9 text-xs">
-                        <SelectValue />
+                        <SelectValue placeholder="Not specified" />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="__none__">Not specified</SelectItem>
                         <SelectItem value="paid">Paid</SelectItem>
                         <SelectItem value="pending">Pending</SelectItem>
                       </SelectContent>
@@ -1151,45 +1201,72 @@ export function CreateOrderDialog({
             </DialogHeader>
 
             <div className="space-y-4 py-3 max-h-96 overflow-y-auto pr-1">
-              {/* Thali Option Groups */}
-              {customizingItem.thali_option_groups?.map((grp) => (
-                <div key={grp.id} className="space-y-2 border-b pb-3">
-                  <div className="flex items-center justify-between text-xs font-semibold">
-                    <span className="text-foreground">{grp.name}</span>
-                    {grp.is_required && <Badge variant="secondary" className="text-[10px]">Required</Badge>}
-                  </div>
-                  <div className="space-y-1.5">
-                    {grp.thali_option_items.map((opt) => {
-                      const isSelected = tempOptions[grp.id]?.label === opt.label
-                      const priceDelta = Number(opt.price_delta || 0)
-                      return (
-                        <div
-                          key={opt.id}
-                          className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer text-xs transition-colors ${
-                            isSelected ? 'border-primary bg-primary/10 font-semibold' : 'hover:bg-accent/40 bg-card'
-                          }`}
-                          onClick={() =>
-                            setTempOptions((prev) => ({
-                              ...prev,
-                              [grp.id]: { label: opt.label, price_delta: priceDelta },
-                            }))
-                          }
-                        >
-                          <span className="flex items-center gap-2">
-                            <span className={`size-4 rounded-full border flex items-center justify-center ${isSelected ? 'border-primary bg-primary text-white' : 'border-muted-foreground/40'}`}>
-                              {isSelected && <Check className="size-3 stroke-[3]" />}
-                            </span>
-                            {opt.label}
-                          </span>
-                          {priceDelta > 0 && (
-                            <span className="text-primary font-bold">+{CURRENCY_SYMBOL}{priceDelta}</span>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
+              {/* Thali Option Groups – dynamically loaded from daily menu */}
+              {isLoadingThaliGroups ? (
+                <div className="flex flex-col items-center justify-center py-8 gap-3 text-muted-foreground text-xs">
+                  <div className="size-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  <span>Loading today's thali choices…</span>
                 </div>
-              ))}
+              ) : resolvedThaliGroups.length === 0 && !isLoadingThaliGroups ? (
+                <p className="text-xs text-muted-foreground text-center py-4">
+                  No thali option groups configured for this item.
+                </p>
+              ) : (
+                resolvedThaliGroups.map((grp) => (
+                  <div key={grp.id} className="space-y-2 border-b pb-3">
+                    <div className="flex items-center justify-between text-xs font-semibold">
+                      <span className="text-foreground">{grp.name}</span>
+                      {grp.is_required && <Badge variant="secondary" className="text-[10px]">Required</Badge>}
+                    </div>
+                    {grp.options.length === 0 ? (
+                      <p className="text-xs text-muted-foreground italic">
+                        No items available for this group on the selected date.
+                      </p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {grp.options.map((opt) => {
+                          const isSelected = tempOptions[grp.id]?.label === opt.label
+                          const priceDelta = opt.price_delta
+                          return (
+                            <div
+                              key={opt.id}
+                              className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer text-xs transition-colors ${
+                                !opt.is_available
+                                  ? 'opacity-50 cursor-not-allowed bg-muted/40'
+                                  : isSelected
+                                  ? 'border-primary bg-primary/10 font-semibold'
+                                  : 'hover:bg-accent/40 bg-card'
+                              }`}
+                              onClick={() => {
+                                if (!opt.is_available) return
+                                setTempOptions((prev) => ({
+                                  ...prev,
+                                  [grp.id]: { label: opt.label, price_delta: priceDelta },
+                                }))
+                              }}
+                            >
+                              <span className="flex items-center gap-2">
+                                <span className={`size-4 rounded-full border flex items-center justify-center ${
+                                  isSelected ? 'border-primary bg-primary text-white' : 'border-muted-foreground/40'
+                                }`}>
+                                  {isSelected && <Check className="size-3 stroke-[3]" />}
+                                </span>
+                                {opt.label}
+                                {!opt.is_available && (
+                                  <span className="text-destructive text-[10px] font-normal">(unavailable)</span>
+                                )}
+                              </span>
+                              {priceDelta > 0 && (
+                                <span className="text-primary font-bold">+{CURRENCY_SYMBOL}{priceDelta}</span>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
 
               {/* Item Add-ons / Customizations */}
               {customizingItem.item_customizations && customizingItem.item_customizations.length > 0 && (

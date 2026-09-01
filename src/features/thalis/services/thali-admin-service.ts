@@ -109,12 +109,10 @@ export function useCreateThaliOptionGroup() {
   return useMutation({
     mutationFn: (input: TablesInsert<'thali_option_groups'>) => createThaliOptionGroup(input),
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: ADMIN_QUERY_KEYS.thaliOptionGroups(variables.food_item_id),
-      })
-      queryClient.invalidateQueries({
-        queryKey: ADMIN_QUERY_KEYS.thaliOptionGroups(),
-      })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'thali-option-groups'] })
+      if (variables.food_item_id) {
+        queryClient.invalidateQueries({ queryKey: ['admin', 'thali-option-groups', variables.food_item_id] })
+      }
       toast.success('Option group created successfully')
     },
     onError: (err: Error) => toast.error(err.message),
@@ -127,9 +125,7 @@ export function useUpdateThaliOptionGroup() {
     mutationFn: ({ id, input }: { id: string; input: TablesUpdate<'thali_option_groups'> }) =>
       updateThaliOptionGroup(id, input),
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ADMIN_QUERY_KEYS.thaliOptionGroups(),
-      })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'thali-option-groups'] })
       toast.success('Option group updated')
     },
     onError: (err: Error) => toast.error(err.message),
@@ -141,9 +137,7 @@ export function useDeleteThaliOptionGroup() {
   return useMutation({
     mutationFn: (id: string) => deleteThaliOptionGroup(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ADMIN_QUERY_KEYS.thaliOptionGroups(),
-      })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'thali-option-groups'] })
       toast.success('Option group deleted')
     },
     onError: (err: Error) => toast.error(err.message),
@@ -155,9 +149,7 @@ export function useCreateThaliOptionItem() {
   return useMutation({
     mutationFn: (input: TablesInsert<'thali_option_items'>) => createThaliOptionItem(input),
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ADMIN_QUERY_KEYS.thaliOptionGroups(),
-      })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'thali-option-groups'] })
       toast.success('Option item added')
     },
     onError: (err: Error) => toast.error(err.message),
@@ -170,9 +162,7 @@ export function useUpdateThaliOptionItem() {
     mutationFn: ({ id, input }: { id: string; input: TablesUpdate<'thali_option_items'> }) =>
       updateThaliOptionItem(id, input),
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ADMIN_QUERY_KEYS.thaliOptionGroups(),
-      })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'thali-option-groups'] })
       toast.success('Option item updated')
     },
     onError: (err: Error) => toast.error(err.message),
@@ -184,9 +174,7 @@ export function useDeleteThaliOptionItem() {
   return useMutation({
     mutationFn: (id: string) => deleteThaliOptionItem(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ADMIN_QUERY_KEYS.thaliOptionGroups(),
-      })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'thali-option-groups'] })
       toast.success('Option item deleted')
     },
     onError: (err: Error) => toast.error(err.message),

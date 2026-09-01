@@ -152,13 +152,12 @@ export function DailyMenuPage() {
   const [selectedItemId, setSelectedItemId] = useState<string>('')
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null)
 
-  const lockStatus = checkMenuEditLock(date, meal)
-
   // Copy previous menu state
   const [copyDialogOpen, setCopyDialogOpen] = useState(false)
   const [sourceDate, setSourceDate] = useState(dayjs().subtract(1, 'day').format('YYYY-MM-DD'))
 
   const { data: menu, isPending: menuPending } = useDailyMenu(date, meal)
+  const lockStatus = checkMenuEditLock(date, meal, menu?.cutoff_time)
   const { data: menuItems, isPending: itemsPending } = useMenuItems(menu?.id)
   const { data: allFoodItems } = useFoodItems()
 
