@@ -19,13 +19,13 @@ import type { OrderStatus } from '@/types/database.types'
 
 const NEXT_STATUS: Partial<Record<OrderStatus, { status: OrderStatus; label: string }>> = {
   pending: { status: 'accepted', label: 'Accept order' },
-  accepted: { status: 'preparing', label: 'Start preparing' },
+  accepted: { status: 'ready', label: 'Mark ready' },
   preparing: { status: 'ready', label: 'Mark ready' },
   ready: { status: 'out_for_delivery', label: 'Out for delivery' },
   out_for_delivery: { status: 'delivered', label: 'Mark delivered' },
 }
 
-const CANCELLABLE: OrderStatus[] = ['pending', 'accepted', 'preparing', 'ready']
+const CANCELLABLE: OrderStatus[] = ['pending', 'accepted', 'ready']
 
 export function OrderDetailDialog({
   order,

@@ -43,7 +43,8 @@ const DEFAULT_VALUES: FoodItemInput = {
   description: '',
   food_type: 'veg',
   price: 0,
-  offer_price: null,
+  compare_price: null,
+  cost_price: null,
   image_url: null,
   is_available: true,
   is_featured: false,
@@ -86,7 +87,8 @@ export function FoodItemFormSheet({
               description: item.description ?? '',
               food_type: item.food_type,
               price: item.price,
-              offer_price: item.offer_price,
+              compare_price: item.compare_price,
+              cost_price: (item as any).cost_price ?? null,
               image_url: item.image_url,
               is_available: item.is_available,
               is_featured: item.is_featured,
@@ -241,48 +243,77 @@ export function FoodItemFormSheet({
               )}
             />
 
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="price"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Price (₹)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        value={field.value}
-                        onChange={(e) => field.onChange(e.target.valueAsNumber || 0)}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            {/* Pricing — 3-column: price / compare_price (MRP) / cost_price (internal) */}
+            <div className="rounded-lg border p-3 space-y-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Pricing</p>
+              <div className="grid grid-cols-3 gap-3">
+                <FormField
+                  control={form.control}
+                  name="price"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Sell Price (₹)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={field.value}
+                          onChange={(e) => field.onChange(e.target.valueAsNumber || 0)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <FormField
-                control={form.control}
-                name="offer_price"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Offer price (optional)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        value={field.value ?? ''}
-                        onChange={(e) =>
-                          field.onChange(e.target.value === '' ? null : e.target.valueAsNumber)
-                        }
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                <FormField
+                  control={form.control}
+                  name="compare_price"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>MRP / Was (₹)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          placeholder="optional"
+                          value={field.value ?? ''}
+                          onChange={(e) =>
+                            field.onChange(e.target.value === '' ? null : e.target.valueAsNumber)
+                          }
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="cost_price"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Cost Price (₹)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          placeholder="internal"
+                          value={field.value ?? ''}
+                          onChange={(e) =>
+                            field.onChange(e.target.value === '' ? null : e.target.valueAsNumber)
+                          }
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <p className="text-[11px] text-muted-foreground">Cost price is internal only — never shown to customers.</p>
             </div>
 
             {/* Preparation Special Options (Swaminarayan, Vaishnav & Jain) */}

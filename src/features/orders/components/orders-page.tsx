@@ -17,7 +17,6 @@ const STATUS_TABS: { value: OrderStatus | 'all'; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'pending', label: ORDER_STATUS_META.pending.label },
   { value: 'accepted', label: ORDER_STATUS_META.accepted.label },
-  { value: 'preparing', label: ORDER_STATUS_META.preparing.label },
   { value: 'ready', label: ORDER_STATUS_META.ready.label },
   { value: 'out_for_delivery', label: ORDER_STATUS_META.out_for_delivery.label },
   { value: 'delivered', label: ORDER_STATUS_META.delivered.label },

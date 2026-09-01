@@ -151,7 +151,7 @@ export function OrderSettingsForm() {
               <div>
                 <p className="text-sm font-medium">Auto-accept new orders</p>
                 <p className="text-muted-foreground text-xs">
-                  Skip the manual accept step — orders go straight to preparing.
+                  Skip the manual accept step — orders go straight to accepted.
                 </p>
               </div>
               <FormField

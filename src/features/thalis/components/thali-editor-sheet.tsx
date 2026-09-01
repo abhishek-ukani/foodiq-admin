@@ -68,7 +68,8 @@ const DEFAULT_VALUES: FoodItemInput = {
   description: '',
   food_type: 'veg',
   price: 0,
-  offer_price: null,
+  compare_price: null,
+  cost_price: null,
   image_url: null,
   is_available: true,
   is_featured: false,
@@ -154,7 +155,8 @@ export function ThaliEditorSheet({
               description: thaliItem.description ?? '',
               food_type: thaliItem.food_type,
               price: thaliItem.price,
-              offer_price: thaliItem.offer_price,
+              compare_price: thaliItem.compare_price,
+              cost_price: (thaliItem as any).cost_price ?? null,
               image_url: thaliItem.image_url,
               is_available: thaliItem.is_available,
               is_featured: thaliItem.is_featured,
@@ -479,10 +481,10 @@ export function ThaliEditorSheet({
 
                   <FormField
                     control={form.control}
-                    name="offer_price"
+                    name="compare_price"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Offer Price (optional)</FormLabel>
+                        <FormLabel>MRP / Was ({CURRENCY_SYMBOL})</FormLabel>
                         <FormControl>
                           <Input
                             type="number"

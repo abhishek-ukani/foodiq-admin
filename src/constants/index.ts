@@ -80,7 +80,6 @@ export const ORDER_STATUS_META: Record<
 export const ORDER_TIMELINE: OrderStatus[] = [
   'pending',
   'accepted',
-  'preparing',
   'ready',
   'out_for_delivery',
   'delivered',
@@ -92,7 +91,7 @@ export const ORDER_TIMELINE: OrderStatus[] = [
  */
 export const ALLOWED_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   pending: ['accepted', 'rejected', 'cancelled'],
-  accepted: ['preparing', 'cancelled'],
+  accepted: ['ready', 'cancelled'],
   preparing: ['ready', 'cancelled'],
   ready: ['out_for_delivery', 'cancelled'],
   out_for_delivery: ['delivered', 'cancelled'],

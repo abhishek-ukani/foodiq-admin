@@ -28,6 +28,10 @@ export type ContactStatus = 'new' | 'in_progress' | 'resolved' | 'archived'
 export type PolicySlug = 'privacy' | 'terms' | 'refund' | 'about' | 'shipping'
 export type BannerPlacement = 'hero' | 'promo_strip' | 'menu_top' | 'popup'
 export type CategoryType = 'thali' | 'sabji' | 'bread' | 'sweet' | 'snack' | 'beverage' | 'rice' | 'general'
+export type UnitType = 'gm' | 'kg' | 'pc' | 'ml' | 'ltr'
+export type StockStatus = 'IN_STOCK' | 'FEW_LEFT' | 'OUT_OF_STOCK'
+export type SupplierStatus = 'ACTIVE' | 'INACTIVE' | 'BLOCKED'
+export type PoStatus = 'DRAFT' | 'ORDERED' | 'PARTIALLY_RECEIVED' | 'RECEIVED' | 'CANCELLED'
 
 type BranchRow = {
   id: string
@@ -42,6 +46,9 @@ type BranchRow = {
   email: string | null
   is_active: boolean
   is_default: boolean
+  opening_time: string | null
+  closing_time: string | null
+  timezone: string | null
   created_at: string
   updated_at: string
 }
@@ -161,7 +168,8 @@ type FoodItemRow = {
   ingredients: string[] | null
   food_type: FoodType
   price: number
-  offer_price: number | null
+  compare_price: number | null
+  cost_price: number | null
   unit_label: string | null
   serves: number | null
   prep_minutes: number | null
@@ -330,10 +338,69 @@ type PriceHistoryRow = {
   food_item_id: string
   old_price: number | null
   new_price: number
-  old_offer_price: number | null
-  new_offer_price: number | null
+  old_compare_price: number | null
+  new_compare_price: number | null
   changed_by: string | null
   reason: string | null
+  created_at: string
+}
+
+type FoodItemVariantRow = {
+  id: string
+  food_item_id: string
+  sku: string
+  label: string
+  unit_type: UnitType
+  quantity: number
+  price: number
+  compare_price: number | null
+  cost_price: number | null
+  stock_status: StockStatus
+  stock_quantity: number
+  is_active: boolean
+  display_order: number
+  created_at: string
+  updated_at: string
+}
+
+type SupplierRow = {
+  id: string
+  branch_id: string | null
+  name: string
+  email: string | null
+  phone: string | null
+  address: string | null
+  gst_number: string | null
+  status: SupplierStatus
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+type PurchaseOrderRow = {
+  id: string
+  branch_id: string
+  supplier_id: string
+  po_number: string
+  status: PoStatus
+  ordered_at: string | null
+  expected_delivery_date: string | null
+  received_at: string | null
+  notes: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+type PurchaseOrderItemRow = {
+  id: string
+  purchase_order_id: string
+  variant_id: string | null
+  food_item_id: string | null
+  item_name: string
+  ordered_quantity: number
+  received_quantity: number
+  unit_cost: number
   created_at: string
 }
 
@@ -348,6 +415,7 @@ type CartItemRow = {
   id: string
   user_id: string
   food_item_id: string
+  variant_id: string | null
   daily_menu_item_id: string | null
   quantity: number
   customizations: Json
@@ -426,10 +494,12 @@ type OrderItemRow = {
   id: string
   order_id: string
   food_item_id: string | null
+  variant_id: string | null
   item_name: string
   item_kind: ItemKind
   item_image_url: string | null
   item_snapshot: Json | null
+  variant_snapshot: Json | null
   unit_price: number
   quantity: number
   customizations: Json
@@ -465,6 +535,7 @@ type ReviewRow = {
   id: string
   user_id: string
   food_item_id: string | null
+  variant_id: string | null
   order_id: string | null
   rating: number
   title: string | null
@@ -474,6 +545,7 @@ type ReviewRow = {
   admin_response: string | null
   responded_at: string | null
   is_featured: boolean
+  helpful_count: number
   created_at: string
   updated_at: string
 }
@@ -636,6 +708,10 @@ export interface Database {
       addresses: TableOf<AddressRow, 'is_default'>
       categories: TableOf<CategoryRow>
       food_items: TableOf<FoodItemRow>
+      food_item_variants: TableOf<FoodItemVariantRow, 'stock_status' | 'stock_quantity' | 'is_active' | 'display_order'>
+      suppliers: TableOf<SupplierRow, 'status'>
+      purchase_orders: TableOf<PurchaseOrderRow, 'status'>
+      purchase_order_items: TableOf<PurchaseOrderItemRow, 'received_quantity'>
       thali_items: TableOf<ThaliItemRow>
       thali_option_groups: TableOf<ThaliOptionGroupRow, 'min_select' | 'max_select' | 'is_required' | 'display_order' | 'is_active'>
       thali_option_items: TableOf<ThaliOptionItemRow, 'price_delta' | 'is_default' | 'display_order' | 'is_active'>
@@ -656,7 +732,6 @@ export interface Database {
       orders: TableOf<OrderRow>
       order_items: TableOf<OrderItemRow>
       order_status_history: TableOf<OrderStatusHistoryRow>
-      upi_qr_codes: TableOf<UpiQrCodeRow>
       reviews: TableOf<ReviewRow, 'status' | 'is_featured'>
       notifications: TableOf<NotificationRow, 'type' | 'audience' | 'is_read'>
       contact_messages: TableOf<ContactMessageRow, 'status'>
@@ -754,6 +829,10 @@ export interface Database {
       contact_status: ContactStatus
       policy_slug: PolicySlug
       banner_placement: BannerPlacement
+      unit_type: UnitType
+      stock_status: StockStatus
+      supplier_status: SupplierStatus
+      po_status: PoStatus
     }
     CompositeTypes: Record<string, never>
   }

@@ -264,7 +264,50 @@ export async function createAdminOrder(input: CreateAdminOrderInput): Promise<Ta
     }
   }
 
-  const orderNumber = `FIQ-${Date.now().toString().slice(-6)}${Math.floor(10 + Math.random() * 90)}`
+  // Generate Option 1 decodable order ID: FIQ-[CAT]-[SLOT][YYMMDD]-[RAND]
+  const kinds = new Set(
+    input.items.map((i) => {
+      const k = (i.item_kind || '').toLowerCase()
+      const n = (i.item_name || '').toLowerCase()
+      if (k === 'thali' || n.includes('thali')) return 'thali'
+      if (k === 'tiffin' || n.includes('tiffin')) return 'tiffin'
+      return 'alacarte'
+    }),
+  )
+
+  let catCode = 'ALA'
+  if (kinds.has('thali') && kinds.has('alacarte')) {
+    catCode = 'MIX'
+  } else if (kinds.has('thali')) {
+    catCode = 'THL'
+  } else if (kinds.has('tiffin')) {
+    catCode = 'TIF'
+  }
+
+  const slotLabel = (input.deliverySlotLabel || '').toLowerCase()
+  let slotCode = 'L'
+  if (slotLabel.includes('dinner') || slotLabel.includes('evening') || slotLabel.includes('pm')) {
+    slotCode = 'D'
+  } else if (slotLabel.includes('lunch') || slotLabel.includes('morning') || slotLabel.includes('am')) {
+    slotCode = 'L'
+  } else {
+    slotCode = new Date().getHours() >= 16 ? 'D' : 'L'
+  }
+
+  let dateCode = ''
+  if (input.deliveryDate && input.deliveryDate.length >= 10) {
+    const raw = input.deliveryDate.substring(0, 10).replace(/-/g, '')
+    dateCode = raw.length === 8 ? raw.substring(2) : raw
+  } else {
+    const d = new Date()
+    const yy = d.getFullYear().toString().slice(-2)
+    const mm = (d.getMonth() + 1).toString().padStart(2, '0')
+    const dd = d.getDate().toString().padStart(2, '0')
+    dateCode = `${yy}${mm}${dd}`
+  }
+
+  const randNum = Math.floor(1000 + Math.random() * 9000).toString()
+  const orderNumber = `FIQ-${catCode}-${slotCode}${dateCode}-${randNum}`
 
   const orderInsert: TablesInsert<'orders'> = {
     order_number: orderNumber,

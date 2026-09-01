@@ -8,7 +8,8 @@ const valid = {
   description: '',
   food_type: 'veg' as const,
   price: 150,
-  offer_price: null,
+  compare_price: null,
+  cost_price: null,
   image_url: null,
   is_available: true,
   is_featured: false,
@@ -17,19 +18,19 @@ const valid = {
 }
 
 describe('foodItemSchema', () => {
-  it('accepts a valid item with no offer price', () => {
+  it('accepts a valid item with no compare price', () => {
     expect(foodItemSchema.safeParse(valid).success).toBe(true)
   })
 
-  it('accepts an offer price below the regular price', () => {
-    const result = foodItemSchema.safeParse({ ...valid, offer_price: 129 })
+  it('accepts a compare price (MRP) above the selling price', () => {
+    const result = foodItemSchema.safeParse({ ...valid, compare_price: 180 })
     expect(result.success).toBe(true)
   })
 
-  it('rejects an offer price above the regular price, attributed to offer_price', () => {
-    const result = foodItemSchema.safeParse({ ...valid, offer_price: 200 })
+  it('rejects a compare price below the selling price, attributed to compare_price', () => {
+    const result = foodItemSchema.safeParse({ ...valid, compare_price: 100 })
     expect(result.success).toBe(false)
-    expect(result.error?.issues[0].path).toEqual(['offer_price'])
+    expect(result.error?.issues[0].path).toEqual(['compare_price'])
   })
 
   it('rejects a negative price', () => {

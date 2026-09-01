@@ -329,20 +329,69 @@ export function CreateOrderDialog({
     })
 
     // Add selected standalone add-ons
-    if (customizingItem.item_customizations) {
+    const sabjiGroup = resolvedThaliGroups.find((g) => {
+      const n = g.name.toLowerCase()
+      return (
+        n.includes('sabji') ||
+        n.includes('shabji') ||
+        n.includes('sabzi') ||
+        n.includes('subji') ||
+        n.includes('curry') ||
+        (g as any).target_category_type === 'sabji'
+      )
+    })
+    const availSabjis = sabjiGroup ? sabjiGroup.options.filter((o) => o.is_available) : []
+    let processedSabjiDynamic = false
+
+    if (customizingItem.item_customizations && customizingItem.item_customizations.length > 0) {
       customizingItem.item_customizations.forEach((cust) => {
-        if (tempAddons[cust.id]) {
-          selectedOptionsList.push({
-            group_name: 'Add-on',
-            option_name: cust.name,
-            price_delta: Number(cust.price_delta || 0),
+        const isSabjiCustomization =
+          cust.name.toLowerCase().includes('sabji') ||
+          cust.name.toLowerCase().includes('shabji') ||
+          cust.name.toLowerCase().includes('sabzi') ||
+          cust.name.toLowerCase().includes('shaak')
+
+        if (isSabjiCustomization && availSabjis.length > 0) {
+          processedSabjiDynamic = true
+          availSabjis.forEach((sabji) => {
+            const key = `${cust.id}__sabji__${sabji.id}`
+            if (tempAddons[key]) {
+              selectedOptionsList.push({
+                group_name: 'Add-on',
+                option_name: `Extra ${sabji.label}`,
+                price_delta: Number(cust.price_delta || 40),
+              })
+              custTotal += Number(cust.price_delta || 40)
+            }
           })
-          custTotal += Number(cust.price_delta || 0)
+        } else {
+          if (tempAddons[cust.id]) {
+            selectedOptionsList.push({
+              group_name: 'Add-on',
+              option_name: cust.name,
+              price_delta: Number(cust.price_delta || 0),
+            })
+            custTotal += Number(cust.price_delta || 0)
+          }
         }
       })
     }
 
-    const unitPrice = Number(customizingItem.offer_price ?? customizingItem.price)
+    if (!processedSabjiDynamic && availSabjis.length > 0) {
+      availSabjis.forEach((sabji) => {
+        const key = `dynamic_extra_sabji__${sabji.id}`
+        if (tempAddons[key]) {
+          selectedOptionsList.push({
+            group_name: 'Add-on',
+            option_name: `Extra ${sabji.label}`,
+            price_delta: 40,
+          })
+          custTotal += 40
+        }
+      })
+    }
+
+    const unitPrice = Number(customizingItem.compare_price ?? customizingItem.price)
     const lineTotal = (unitPrice + custTotal) * 1
 
     const newCartItem: SelectedCartItem = {
@@ -366,7 +415,7 @@ export function CreateOrderDialog({
 
   // Directly add item if no options exist
   const addSimpleItemToCart = (item: FoodItemForOrder) => {
-    const unitPrice = Number(item.offer_price ?? item.price)
+    const unitPrice = Number(item.compare_price ?? item.price)
     const existingIndex = cartItems.findIndex((c) => c.food_item_id === item.id && c.selectedOptions.length === 0)
 
     if (existingIndex > -1) {
@@ -843,7 +892,7 @@ export function CreateOrderDialog({
                 {/* Items List */}
                 <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
                   {filteredFoodItems.map((item) => {
-                    const price = item.offer_price ?? item.price
+                    const price = item.compare_price ?? item.price
                     const hasOptions =
                       (item.thali_option_groups && item.thali_option_groups.length > 0) ||
                       (item.item_customizations && item.item_customizations.length > 0)
@@ -874,7 +923,7 @@ export function CreateOrderDialog({
                           </div>
                           <p className="text-muted-foreground font-medium">
                             {CURRENCY_SYMBOL}{price}
-                            {item.offer_price ? (
+                            {item.compare_price ? (
                               <span className="line-through ml-1.5 text-muted-foreground/70 text-[11px]">
                                 {CURRENCY_SYMBOL}{item.price}
                               </span>
@@ -1090,7 +1139,6 @@ export function CreateOrderDialog({
                     <SelectContent>
                       <SelectItem value="accepted">Accepted (Confirmed)</SelectItem>
                       <SelectItem value="pending">Pending Confirmation</SelectItem>
-                      <SelectItem value="preparing">Preparing</SelectItem>
                       <SelectItem value="ready">Ready for Dispatch</SelectItem>
                     </SelectContent>
                   </Select>
@@ -1212,101 +1260,247 @@ export function CreateOrderDialog({
                   No thali option groups configured for this item.
                 </p>
               ) : (
-                resolvedThaliGroups.map((grp) => (
-                  <div key={grp.id} className="space-y-2 border-b pb-3">
-                    <div className="flex items-center justify-between text-xs font-semibold">
-                      <span className="text-foreground">{grp.name}</span>
-                      {grp.is_required && <Badge variant="secondary" className="text-[10px]">Required</Badge>}
-                    </div>
-                    {grp.options.length === 0 ? (
-                      <p className="text-xs text-muted-foreground italic">
-                        No items available for this group on the selected date.
-                      </p>
-                    ) : (
-                      <div className="space-y-1.5">
-                        {grp.options.map((opt) => {
-                          const isSelected = tempOptions[grp.id]?.label === opt.label
-                          const priceDelta = opt.price_delta
-                          return (
-                            <div
-                              key={opt.id}
-                              className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer text-xs transition-colors ${
-                                !opt.is_available
-                                  ? 'opacity-50 cursor-not-allowed bg-muted/40'
-                                  : isSelected
-                                  ? 'border-primary bg-primary/10 font-semibold'
-                                  : 'hover:bg-accent/40 bg-card'
-                              }`}
-                              onClick={() => {
-                                if (!opt.is_available) return
-                                setTempOptions((prev) => ({
-                                  ...prev,
-                                  [grp.id]: { label: opt.label, price_delta: priceDelta },
-                                }))
-                              }}
-                            >
-                              <span className="flex items-center gap-2">
-                                <span className={`size-4 rounded-full border flex items-center justify-center ${
-                                  isSelected ? 'border-primary bg-primary text-white' : 'border-muted-foreground/40'
-                                }`}>
-                                  {isSelected && <Check className="size-3 stroke-[3]" />}
-                                </span>
-                                {opt.label}
-                                {!opt.is_available && (
-                                  <span className="text-destructive text-[10px] font-normal">(unavailable)</span>
-                                )}
-                              </span>
-                              {priceDelta > 0 && (
-                                <span className="text-primary font-bold">+{CURRENCY_SYMBOL}{priceDelta}</span>
-                              )}
-                            </div>
-                          )
-                        })}
+                resolvedThaliGroups
+                  .filter((g) => {
+                    const n = g.name.toLowerCase()
+                    return !n.includes('add-on') && !n.includes('addon')
+                  })
+                  .map((grp) => (
+                    <div key={grp.id} className="space-y-2 border-b pb-3">
+                      <div className="flex items-center justify-between text-xs font-semibold">
+                        <span className="text-foreground">{grp.name}</span>
+                        {grp.is_required && <Badge variant="secondary" className="text-[10px]">Required</Badge>}
                       </div>
-                    )}
-                  </div>
-                ))
+                      {grp.options.length === 0 ? (
+                        <p className="text-xs text-muted-foreground italic">
+                          No items available for this group on the selected date.
+                        </p>
+                      ) : (
+                        <div className="space-y-1.5">
+                          {grp.options.map((opt) => {
+                            const isSelected = tempOptions[grp.id]?.label === opt.label
+                            const priceDelta = opt.price_delta
+                            return (
+                              <div
+                                key={opt.id}
+                                className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer text-xs transition-colors ${
+                                  !opt.is_available
+                                    ? 'opacity-50 cursor-not-allowed bg-muted/40'
+                                    : isSelected
+                                    ? 'border-primary bg-primary/10 font-semibold'
+                                    : 'hover:bg-accent/40 bg-card'
+                                }`}
+                                onClick={() => {
+                                  if (!opt.is_available) return
+                                  setTempOptions((prev) => ({
+                                    ...prev,
+                                    [grp.id]: { label: opt.label, price_delta: priceDelta },
+                                  }))
+                                }}
+                              >
+                                <span className="flex items-center gap-2">
+                                  <span className={`size-4 rounded-full border flex items-center justify-center ${
+                                    isSelected ? 'border-primary bg-primary text-white' : 'border-muted-foreground/40'
+                                  }`}>
+                                    {isSelected && <Check className="size-3 stroke-[3]" />}
+                                  </span>
+                                  {opt.label}
+                                  {!opt.is_available && (
+                                    <span className="text-destructive text-[10px] font-normal">(unavailable)</span>
+                                  )}
+                                </span>
+                                {priceDelta > 0 && (
+                                  <span className="text-primary font-bold">+{CURRENCY_SYMBOL}{priceDelta}</span>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  ))
               )}
 
               {/* Item Add-ons / Customizations */}
-              {customizingItem.item_customizations && customizingItem.item_customizations.length > 0 && (
-                <div className="space-y-2 border-b pb-3">
-                  <span className="text-xs font-semibold text-foreground">Add-ons & Extras</span>
-                  <div className="space-y-1.5">
-                    {customizingItem.item_customizations.map((cust) => {
-                      const isChecked = !!tempAddons[cust.id]
-                      const priceDelta = Number(cust.price_delta || 0)
-                      return (
-                        <div
-                          key={cust.id}
-                          className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer text-xs transition-colors ${
-                            isChecked ? 'border-primary bg-primary/10 font-semibold' : 'hover:bg-accent/40 bg-card'
-                          }`}
-                          onClick={() =>
-                            setTempAddons((prev) => ({
-                              ...prev,
-                              [cust.id]: !prev[cust.id],
-                            }))
-                          }
-                        >
-                          <span className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              readOnly
-                              className="size-4 rounded border-primary accent-primary"
-                            />
-                            {cust.name}
-                          </span>
-                          {priceDelta > 0 && (
-                            <span className="text-primary font-bold">+{CURRENCY_SYMBOL}{priceDelta}</span>
-                          )}
-                        </div>
-                      )
-                    })}
+              {(() => {
+                const sabjiGroup = resolvedThaliGroups.find((g) => {
+                  const n = g.name.toLowerCase()
+                  return (
+                    n.includes('sabji') ||
+                    n.includes('shabji') ||
+                    n.includes('sabzi') ||
+                    n.includes('subji') ||
+                    n.includes('curry') ||
+                    (g as any).target_category_type === 'sabji'
+                  )
+                })
+                const availSabjis = sabjiGroup ? sabjiGroup.options.filter((o) => o.is_available) : []
+                const customizations = customizingItem.item_customizations || []
+
+                let hasSabjiInCust = false
+                const addonElements: React.ReactNode[] = []
+
+                const addOnGroups = resolvedThaliGroups.filter((g) => {
+                  const n = g.name.toLowerCase()
+                  return n.includes('add-on') || n.includes('addon')
+                })
+
+                addOnGroups.forEach((grp) => {
+                  grp.options.forEach((opt) => {
+                    if (!opt.is_available) return
+                    const key = opt.id
+                    const isChecked = !!tempAddons[key]
+                    const priceDelta = Number(opt.price_delta || 0)
+                    addonElements.push(
+                      <div
+                        key={key}
+                        className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer text-xs transition-colors ${
+                          isChecked ? 'border-primary bg-primary/10 font-semibold' : 'hover:bg-accent/40 bg-card'
+                        }`}
+                        onClick={() =>
+                          setTempAddons((prev) => ({
+                            ...prev,
+                            [key]: !prev[key],
+                          }))
+                        }
+                      >
+                        <span className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            readOnly
+                            className="size-4 rounded border-primary accent-primary"
+                          />
+                          {opt.label}
+                        </span>
+                        {priceDelta > 0 && (
+                          <span className="text-primary font-bold">+{CURRENCY_SYMBOL}{priceDelta}</span>
+                        )}
+                      </div>
+                    )
+                  })
+                })
+
+                customizations.forEach((cust) => {
+                  const isSabji =
+                    cust.name.toLowerCase().includes('sabji') ||
+                    cust.name.toLowerCase().includes('shabji') ||
+                    cust.name.toLowerCase().includes('sabzi') ||
+                    cust.name.toLowerCase().includes('shaak')
+
+                  if (isSabji) {
+                    hasSabjiInCust = true
+                    if (availSabjis.length > 0) {
+                      availSabjis.forEach((sabji) => {
+                        const key = `${cust.id}__sabji__${sabji.id}`
+                        const isChecked = !!tempAddons[key]
+                        const priceDelta = Number(cust.price_delta || 40)
+                        const displayName = `Extra ${sabji.label}`
+                        addonElements.push(
+                          <div
+                            key={key}
+                            className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer text-xs transition-colors ${
+                              isChecked ? 'border-primary bg-primary/10 font-semibold' : 'hover:bg-accent/40 bg-card'
+                            }`}
+                            onClick={() =>
+                              setTempAddons((prev) => ({
+                                ...prev,
+                                [key]: !prev[key],
+                              }))
+                            }
+                          >
+                            <span className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                readOnly
+                                className="size-4 rounded border-primary accent-primary"
+                              />
+                              {displayName}
+                            </span>
+                            {priceDelta > 0 && (
+                              <span className="text-primary font-bold">+{CURRENCY_SYMBOL}{priceDelta}</span>
+                            )}
+                          </div>
+                        )
+                      })
+                    }
+                  } else {
+                    const isChecked = !!tempAddons[cust.id]
+                    const priceDelta = Number(cust.price_delta || 0)
+                    addonElements.push(
+                      <div
+                        key={cust.id}
+                        className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer text-xs transition-colors ${
+                          isChecked ? 'border-primary bg-primary/10 font-semibold' : 'hover:bg-accent/40 bg-card'
+                        }`}
+                        onClick={() =>
+                          setTempAddons((prev) => ({
+                            ...prev,
+                            [cust.id]: !prev[cust.id],
+                          }))
+                        }
+                      >
+                        <span className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            readOnly
+                            className="size-4 rounded border-primary accent-primary"
+                          />
+                          {cust.name}
+                        </span>
+                        {priceDelta > 0 && (
+                          <span className="text-primary font-bold">+{CURRENCY_SYMBOL}{priceDelta}</span>
+                        )}
+                      </div>
+                    )
+                  }
+                })
+
+                if (!hasSabjiInCust && availSabjis.length > 0) {
+                  availSabjis.forEach((sabji) => {
+                    const key = `dynamic_extra_sabji__${sabji.id}`
+                    const isChecked = !!tempAddons[key]
+                    const priceDelta = 40
+                    const displayName = `Extra ${sabji.label}`
+                    addonElements.push(
+                      <div
+                        key={key}
+                        className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer text-xs transition-colors ${
+                          isChecked ? 'border-primary bg-primary/10 font-semibold' : 'hover:bg-accent/40 bg-card'
+                        }`}
+                        onClick={() =>
+                          setTempAddons((prev) => ({
+                            ...prev,
+                            [key]: !prev[key],
+                          }))
+                        }
+                      >
+                        <span className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            readOnly
+                            className="size-4 rounded border-primary accent-primary"
+                          />
+                          {displayName}
+                        </span>
+                        <span className="text-primary font-bold">+{CURRENCY_SYMBOL}{priceDelta}</span>
+                      </div>
+                    )
+                  })
+                }
+
+                if (addonElements.length === 0) return null
+
+                return (
+                  <div className="space-y-2 border-b pb-3">
+                    <span className="text-xs font-semibold text-foreground">Add-ons & Extras</span>
+                    <div className="space-y-1.5">{addonElements}</div>
                   </div>
-                </div>
-              )}
+                )
+              })()}
 
               {/* Special Note per item */}
               <div className="space-y-1">

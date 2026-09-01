@@ -56,9 +56,9 @@ function ThaliCard({
           </div>
           <div className="text-right shrink-0">
             <span className="text-base font-bold text-primary tabular-nums">
-              {CURRENCY_SYMBOL}{item.offer_price ?? item.price}
+              {CURRENCY_SYMBOL}{item.compare_price ?? item.price}
             </span>
-            {item.offer_price && (
+            {item.compare_price && (
               <span className="text-xs text-muted-foreground line-through block tabular-nums">
                 {CURRENCY_SYMBOL}{item.price}
               </span>

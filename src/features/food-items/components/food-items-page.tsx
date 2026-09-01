@@ -84,13 +84,13 @@ export function FoodItemsPage() {
         header: 'Price',
         cell: ({ row }) => (
           <div>
-            {row.original.offer_price ? (
+            {row.original.compare_price ? (
               <>
-                <span className="font-medium">
+                <span className="text-muted-foreground text-xs line-through">
                   {CURRENCY_SYMBOL}
-                  {row.original.offer_price}
+                  {row.original.compare_price}
                 </span>
-                <span className="text-muted-foreground ml-1.5 text-xs line-through">
+                <span className="font-medium ml-1.5">
                   {CURRENCY_SYMBOL}
                   {row.original.price}
                 </span>

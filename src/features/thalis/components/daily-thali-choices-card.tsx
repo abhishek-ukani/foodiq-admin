@@ -324,7 +324,7 @@ export function DailyThaliChoicesCard() {
                         ) : null}
                       </div>
                       <p className="text-muted-foreground text-xs">
-                        Price: {CURRENCY_SYMBOL}{item.food_items.offer_price ?? item.food_items.price}
+                        Price: {CURRENCY_SYMBOL}{item.food_items.compare_price ?? item.food_items.price}
                         {item.available_quantity ? (
                           <span className="ml-2 text-amber-700">
                             {item.sold_quantity ?? 0}/{item.available_quantity} sold

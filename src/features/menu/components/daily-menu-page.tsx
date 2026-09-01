@@ -359,7 +359,7 @@ export function DailyMenuPage() {
                         </div>
                         <p className="text-muted-foreground text-sm">
                           {CURRENCY_SYMBOL}
-                          {item.price_override ?? item.food_items.offer_price ?? item.food_items.price}
+                          {item.price_override ?? item.food_items.price}
                           {item.available_quantity ? (
                             <span className="ml-2 text-xs text-amber-700">
                               {item.sold_quantity ?? 0}/{item.available_quantity} sold
