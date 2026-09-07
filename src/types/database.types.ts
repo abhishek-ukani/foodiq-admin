@@ -73,18 +73,38 @@ type ProfileRow = {
 
 type DeliveryAreaRow = {
   id: string
-  branch_id: string
   name: string
-  pincode: string
+  area_key: string | null
+  pincode: string | null
   city: string | null
   state: string | null
-  delivery_charge: number
-  min_order_amount: number
-  free_delivery_above: number | null
-  estimated_minutes: number | null
+  display_order: number
   is_active: boolean
   created_at: string
   updated_at: string
+}
+
+type DeliveryBuildingRow = {
+  id: number
+  name: string
+  delivery_charge: number
+  area_hint: string | null
+  pincode: string | null
+  city: string
+  state: string
+  display_order: number
+  is_active: boolean
+  created_at: string
+}
+
+type DeliveryRoadRow = {
+  id: number
+  name: string
+  delivery_charge: number
+  area_hint: string | null
+  display_order: number
+  is_active: boolean
+  created_at: string
 }
 
 type DeliveryZoneRow = {
@@ -125,12 +145,16 @@ type AddressRow = {
   id: string
   user_id: string
   delivery_area_id: string | null
+  delivery_building_id: number | null
+  delivery_road_id: number | null
   label: AddressLabel
+  custom_label: string | null
   contact_name: string
   contact_phone: string
   address_line1: string
   address_line2: string | null
   landmark: string | null
+  sublocality: string | null
   city: string
   state: string
   pincode: string
@@ -479,6 +503,9 @@ type OrderRow = {
   special_instructions: string | null
   cancellation_reason: string | null
   rejection_reason: string | null
+  preferred_lunch_time: string | null
+  is_out_of_zone: boolean
+  zone_label: string | null
   placed_at: string
   accepted_at: string | null
   prepared_at: string | null
@@ -700,7 +727,15 @@ export interface Database {
       profiles: TableOf<ProfileRow>
       delivery_areas: TableOf<
         DeliveryAreaRow,
-        'delivery_charge' | 'min_order_amount' | 'is_active'
+        'display_order' | 'is_active'
+      >
+      delivery_buildings: TableOf<
+        DeliveryBuildingRow,
+        'delivery_charge' | 'display_order' | 'is_active'
+      >
+      delivery_roads: TableOf<
+        DeliveryRoadRow,
+        'delivery_charge' | 'display_order' | 'is_active'
       >
       delivery_zones: TableOf<DeliveryZoneRow, 'fixed_fee' | 'is_active'>
       delivery_fee_rules: TableOf<DeliveryFeeRuleRow, 'is_active'>

@@ -82,6 +82,32 @@ export async function updateOrderStatus(
   }
 }
 
+export async function updateOrderDeliveryCharge(
+  id: string,
+  newDeliveryCharge: number,
+): Promise<void> {
+  const { data: order, error: fetchErr } = await supabase
+    .from('orders')
+    .select('subtotal, tax_amount, discount_amount')
+    .eq('id', id)
+    .single()
+
+  if (fetchErr || !order) throw new Error(fetchErr?.message || 'Order not found')
+
+  const newTotal = Number(order.subtotal || 0) + Number(newDeliveryCharge) + Number(order.tax_amount || 0) - Number(order.discount_amount || 0)
+
+  const { error } = await supabase
+    .from('orders')
+    .update({
+      delivery_charge: newDeliveryCharge,
+      total_amount: newTotal,
+      is_out_of_zone: false,
+    })
+    .eq('id', id)
+
+  if (error) throw error
+}
+
 export async function fetchActiveDeliverySlots(): Promise<Tables<'delivery_slots'>[]> {
   const { data, error } = await supabase
     .from('delivery_slots')

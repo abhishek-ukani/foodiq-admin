@@ -82,7 +82,16 @@ export function OrdersPage() {
       {
         accessorKey: 'status',
         header: 'Status',
-        cell: ({ row }) => <OrderStatusBadge status={row.original.status} />,
+        cell: ({ row }) => (
+          <div className="flex flex-col gap-1">
+            <OrderStatusBadge status={row.original.status} />
+            {row.original.is_out_of_zone ? (
+              <span className="inline-flex items-center gap-1 rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-600 dark:text-amber-400">
+                🟡 Out of Zone
+              </span>
+            ) : null}
+          </div>
+        ),
       },
       {
         accessorKey: 'total_amount',

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import dayjs from 'dayjs'
 import {
   Dialog,
@@ -9,10 +9,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { OrderStatusBadge } from '@/components/common/order-status-badge'
 import { OrderStatusTimeline } from '@/components/common/order-status-timeline'
-import { useUpdateOrderStatus } from '@/features/orders/hooks/use-orders'
+import { useUpdateOrderDeliveryCharge, useUpdateOrderStatus } from '@/features/orders/hooks/use-orders'
 import type { AdminOrder } from '@/features/orders/services/orders-service'
 import { CURRENCY_SYMBOL } from '@/constants'
 import type { OrderStatus } from '@/types/database.types'
@@ -35,9 +36,17 @@ export function OrderDetailDialog({
   onOpenChange: (open: boolean) => void
 }) {
   const updateStatus = useUpdateOrderStatus()
+  const updateCharge = useUpdateOrderDeliveryCharge()
   const [reason, setReason] = useState('')
   const [showReject, setShowReject] = useState(false)
   const [showCancel, setShowCancel] = useState(false)
+  const [customCharge, setCustomCharge] = useState<number>(0)
+
+  useEffect(() => {
+    if (order) {
+      setCustomCharge(order.delivery_charge || 0)
+    }
+  }, [order])
 
   if (!order) return null
 
@@ -48,6 +57,10 @@ export function OrderDetailDialog({
     setReason('')
     setShowReject(false)
     setShowCancel(false)
+  }
+
+  const handleUpdateCharge = () => {
+    updateCharge.mutate({ id: order.id, deliveryCharge: Number(customCharge) })
   }
 
   return (
@@ -63,6 +76,11 @@ export function OrderDetailDialog({
           <div className="flex items-center gap-2">
             <DialogTitle>{order.order_number}</DialogTitle>
             <OrderStatusBadge status={order.status} />
+            {order.is_out_of_zone && (
+              <span className="rounded bg-amber-500/10 px-2 py-0.5 text-xs font-semibold text-amber-600 dark:text-amber-400">
+                🟡 Out of Zone
+              </span>
+            )}
           </div>
           <DialogDescription>
             Placed {dayjs(order.placed_at).format('D MMM YYYY, h:mm A')} by {order.contact_name}
@@ -70,15 +88,50 @@ export function OrderDetailDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="rounded-lg border p-3 text-sm">
-            <p className="font-medium">{order.contact_name}</p>
+          <div className="rounded-lg border p-3 text-sm space-y-1">
+            <p className="font-medium">{order.contact_name} ({order.contact_phone})</p>
             <p className="text-muted-foreground">
               {order.address_line1}, {order.city}, {order.pincode}
             </p>
-            <p className="text-muted-foreground mt-1">
-              {dayjs(order.delivery_date).format('D MMM')} · {order.delivery_slot_label}
+            {order.zone_label && (
+              <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                📍 Zone: {order.zone_label}
+              </p>
+            )}
+            {order.preferred_lunch_time && (
+              <p className="text-xs font-medium text-primary">
+                🍱 Preferred Lunch Time: {order.preferred_lunch_time}
+              </p>
+            )}
+            <p className="text-muted-foreground text-xs pt-1">
+              Delivery Date: {dayjs(order.delivery_date).format('D MMM YYYY')}
             </p>
           </div>
+
+          {/* Out-of-Zone Charge Adjustment */}
+          {order.is_out_of_zone ? (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm space-y-2">
+              <p className="font-semibold text-amber-700 dark:text-amber-400 text-xs uppercase tracking-wide">
+                🟡 Unconfirmed Delivery Charge
+              </p>
+              <p className="text-xs text-muted-foreground">
+                This customer requested delivery outside standard zones. Set the custom delivery charge below to confirm:
+              </p>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium">{CURRENCY_SYMBOL}</span>
+                <Input
+                  type="number"
+                  value={customCharge}
+                  onChange={(e) => setCustomCharge(Number(e.target.value))}
+                  className="w-28 h-8 text-xs font-mono"
+                  placeholder="Charge"
+                />
+                <Button size="sm" h-8 onClick={handleUpdateCharge} disabled={updateCharge.isPending}>
+                  {updateCharge.isPending ? 'Saving...' : 'Set Charge & Update Total'}
+                </Button>
+              </div>
+            </div>
+          ) : null}
 
           <div className="space-y-2">
             {order.order_items.map((item) => {
@@ -108,12 +161,28 @@ export function OrderDetailDialog({
                 </div>
               )
             })}
-            <div className="flex justify-between border-t pt-2 font-semibold">
-              <span>Total</span>
-              <span>
-                {CURRENCY_SYMBOL}
-                {order.total_amount}
-              </span>
+            <div className="border-t pt-2 space-y-1 text-xs">
+              <div className="flex justify-between text-muted-foreground">
+                <span>Subtotal</span>
+                <span>{CURRENCY_SYMBOL}{order.subtotal}</span>
+              </div>
+              <div className="flex justify-between text-muted-foreground">
+                <span>Delivery Charge</span>
+                <span>{CURRENCY_SYMBOL}{order.delivery_charge}</span>
+              </div>
+              {order.discount_amount > 0 && (
+                <div className="flex justify-between text-emerald-600">
+                  <span>Discount</span>
+                  <span>-{CURRENCY_SYMBOL}{order.discount_amount}</span>
+                </div>
+              )}
+              <div className="flex justify-between font-semibold text-sm pt-1 border-t">
+                <span>Total</span>
+                <span>
+                  {CURRENCY_SYMBOL}
+                  {order.total_amount}
+                </span>
+              </div>
             </div>
           </div>
 
