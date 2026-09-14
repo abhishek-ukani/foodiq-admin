@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import {
@@ -122,6 +122,11 @@ export function ThaliEditorSheet({
   const todayStr = dayjs().format('YYYY-MM-DD')
   const { data: dailyMenu } = useDailyMenu(todayStr, adminMealType)
   const { data: dailyMenuItems } = useMenuItems(dailyMenu?.id)
+
+  const globalFoodItemIds = useMemo(() => {
+    const list = Array.isArray(globalComponents) ? globalComponents : []
+    return new Set(list.filter((c) => (c as any).is_active !== false).map((c) => c.food_item_id))
+  }, [globalComponents])
 
   const createGroup = useCreateThaliOptionGroup()
   const updateGroup = useUpdateThaliOptionGroup()
@@ -670,20 +675,29 @@ export function ThaliEditorSheet({
                             <div className="space-y-1.5">
                               {matchingItems.map((item) => {
                                 const isDisabled = disabledIds.includes(item.id)
+                                const isGlobal = globalFoodItemIds.has(item.id)
                                 return (
                                   <div
                                     key={item.id}
                                     className={`flex items-center justify-between p-2 rounded-lg border text-xs transition-colors ${
                                       isDisabled
                                         ? 'bg-muted/40 border-dashed opacity-60'
-                                        : 'bg-amber-50/50 dark:bg-amber-950/20 border-amber-200/60'
+                                        : isGlobal
+                                          ? 'bg-sky-50/40 dark:bg-sky-950/20 border-sky-200/60'
+                                          : 'bg-amber-50/50 dark:bg-amber-950/20 border-amber-200/60'
                                     }`}
                                   >
                                     <div className="flex items-center gap-2 min-w-0 flex-wrap">
                                       <span className="font-medium text-foreground truncate">{item.name}</span>
-                                      <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300 px-1.5 py-0 flex items-center gap-1">
-                                        <Globe className="size-2.5" /> Global Daily Item
-                                      </Badge>
+                                      {isGlobal ? (
+                                        <Badge variant="outline" className="text-[10px] bg-sky-50 text-sky-800 border-sky-300 dark:bg-sky-950 dark:text-sky-300 px-1.5 py-0 flex items-center gap-1">
+                                          <Globe className="size-2.5" /> Global Component
+                                        </Badge>
+                                      ) : (
+                                        <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300 px-1.5 py-0 flex items-center gap-1">
+                                          <Sparkles className="size-2.5" /> Today's Daily Item
+                                        </Badge>
+                                      )}
                                       {item.categories?.name && (
                                         <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-muted-foreground">
                                           {item.categories.name}
@@ -698,15 +712,17 @@ export function ThaliEditorSheet({
                                         checked={!isDisabled}
                                         onCheckedChange={() => handleToggleDisableDailyItem(grp, item.id)}
                                       />
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="size-6 text-destructive hover:bg-destructive/10 ml-1"
-                                        title="Remove from Global Daily Items"
-                                        onClick={() => handleRemoveGlobalComponent(item.id)}
-                                      >
-                                        <Trash2 className="size-3" />
-                                      </Button>
+                                      {isGlobal && (
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="size-6 text-destructive hover:bg-destructive/10 ml-1"
+                                          title="Remove from Global Components"
+                                          onClick={() => handleRemoveGlobalComponent(item.id)}
+                                        >
+                                          <Trash2 className="size-3" />
+                                        </Button>
+                                      )}
                                     </div>
                                   </div>
                                 )

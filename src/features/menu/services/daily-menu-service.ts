@@ -70,7 +70,6 @@ export async function ensureDailyMenu(menuDate: string, mealType: MealType): Pro
 
   if (fetchError) throw fetchError
   if (existing) {
-    await autoPopulateDailyMenuWithActiveItems(existing.id)
     return existing
   }
 

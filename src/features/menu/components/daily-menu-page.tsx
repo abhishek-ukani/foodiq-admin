@@ -44,6 +44,7 @@ import {
   useRemoveMenuItem,
   useToggleMenuItemAvailable,
   useToggleMenuItemStandalone,
+  useToggleMenuItemThaliOption,
   useTogglePublish,
   useUpdateMenuCutoff,
   useUpdateMenuItemInventory,
@@ -168,6 +169,7 @@ export function DailyMenuPage() {
   const removeItem = useRemoveMenuItem(menu?.id)
   const toggleAvailable = useToggleMenuItemAvailable(menu?.id)
   const toggleStandalone = useToggleMenuItemStandalone(menu?.id)
+  const toggleThaliOption = useToggleMenuItemThaliOption(menu?.id)
   const updateInventory = useUpdateMenuItemInventory(menu?.id)
 
   const storefrontMenuItems = (menuItems || []).filter(
@@ -305,7 +307,7 @@ export function DailyMenuPage() {
                 if (selectedItemId) {
                   addItem.mutate({
                     foodItemId: selectedItemId,
-                    options: { is_standalone_sale: true, is_thali_option: true },
+                    options: { is_standalone_sale: true, is_thali_option: false },
                   }, { onSuccess: () => setSelectedItemId('') })
                 }
               }}
@@ -376,6 +378,17 @@ export function DailyMenuPage() {
                             disabled={lockStatus.isLocked}
                             onCheckedChange={(checked) =>
                               toggleAvailable.mutate({ id: item.id, is_available: checked })
+                            }
+                          />
+                        </div>
+
+                        <div className="flex items-center gap-1.5" title="Allow customers to select this dish as an option inside Thalis today">
+                          <span className="text-xs text-muted-foreground">In Thali</span>
+                          <Switch
+                            checked={item.is_thali_option === true}
+                            disabled={lockStatus.isLocked}
+                            onCheckedChange={(checked) =>
+                              toggleThaliOption.mutate({ id: item.id, is_thali_option: checked })
                             }
                           />
                         </div>
