@@ -28,6 +28,11 @@ const ThaliCustomizationPage = lazy(() =>
     default: m.ThaliCustomizationPage,
   })),
 )
+const StoreProductsPage = lazy(() =>
+  import('@/features/store-products/components/store-products-page').then((m) => ({
+    default: m.StoreProductsPage,
+  })),
+)
 const OrdersPage = lazy(() =>
   import('@/features/orders/components/orders-page').then((m) => ({ default: m.OrdersPage })),
 )
@@ -84,6 +89,7 @@ export const router = createBrowserRouter([
       { path: ADMIN_ROUTES.foodItems, element: withSuspense(<FoodItemsPage />) },
       { path: ADMIN_ROUTES.dailyMenu, element: withSuspense(<DailyMenuPage />) },
       { path: ADMIN_ROUTES.thalis, element: withSuspense(<ThaliCustomizationPage />) },
+      { path: ADMIN_ROUTES.storeProducts, element: withSuspense(<StoreProductsPage />) },
       { path: ADMIN_ROUTES.orders, element: withSuspense(<OrdersPage />) },
       { path: ADMIN_ROUTES.settings, element: withSuspense(<SettingsPage />) },
       { path: ADMIN_ROUTES.customers, element: withSuspense(<CustomersPage />) },

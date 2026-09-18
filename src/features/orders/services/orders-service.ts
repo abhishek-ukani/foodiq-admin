@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { getDefaultBranchId } from '@/lib/default-branch'
 import { incrementMenuItemSoldQty, decrementOrderItemsSoldQty } from '@/features/menu/services/daily-menu-service'
-import type { ItemKind, OrderStatus, PaymentMethod, PaymentStatus, Tables, TablesInsert, TablesUpdate } from '@/types/database.types'
+import type { ItemKind, MealType, OrderStatus, PaymentMethod, PaymentStatus, Tables, TablesInsert, TablesUpdate } from '@/types/database.types'
 
 export type AdminOrder = Tables<'orders'> & { order_items: Tables<'order_items'>[] }
 
@@ -182,7 +182,7 @@ export async function fetchThaliOptionGroupsForAdminOrder(
     .from('daily_menu_items')
     .select('*, food_items(*, categories(id, name, category_type)), daily_menus!inner(menu_date, is_published, meal_type)')
     .eq('daily_menus.menu_date', deliveryDate)
-    .eq('daily_menus.meal_type', mealType)
+    .eq('daily_menus.meal_type', mealType as MealType)
     .eq('daily_menus.is_published', true)
     .eq('is_available', true)
     .neq('is_thali_option', false)
@@ -361,6 +361,7 @@ export async function createAdminOrder(input: CreateAdminOrderInput): Promise<Ta
     tax_amount: input.taxAmount,
     total_amount: input.totalAmount,
     special_instructions: input.specialInstructions ?? null,
+    is_out_of_zone: false,
     placed_at: new Date().toISOString(),
   }
 

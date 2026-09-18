@@ -546,7 +546,7 @@ type OrderStatusHistoryRow = {
   created_at: string
 }
 
-type UpiQrCodeRow = {
+export type UpiQrCodeRow = {
   id: string
   branch_id: string
   label: string

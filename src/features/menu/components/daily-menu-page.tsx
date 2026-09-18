@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import dayjs from 'dayjs'
 import {
   CalendarDays,
@@ -11,11 +12,14 @@ import {
   Plus,
   Trash2,
   UtensilsCrossed,
+  Store,
+  ArrowRight,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { ADMIN_ROUTES } from '@/constants'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
@@ -50,6 +54,7 @@ import {
   useUpdateMenuItemInventory,
 } from '@/features/menu/hooks/use-daily-menu'
 import { checkMenuEditLock } from '@/features/menu/utils/menu-cutoff'
+import { useDeliverySlots } from '@/features/settings/hooks/use-delivery'
 import { CURRENCY_SYMBOL } from '@/constants'
 import type { DailyMenuItemWithFood } from '@/features/menu/services/daily-menu-service'
 import type { MealType } from '@/types/database.types'
@@ -161,6 +166,10 @@ export function DailyMenuPage() {
   const lockStatus = checkMenuEditLock(date, meal, menu?.cutoff_time)
   const { data: menuItems, isPending: itemsPending } = useMenuItems(menu?.id)
   const { data: allFoodItems } = useFoodItems()
+  const { data: deliverySlots } = useDeliverySlots()
+
+  const matchingSlot = deliverySlots?.find((s) => s.meal_type === meal && s.is_active)
+  const defaultSlotCutoff = matchingSlot?.cutoff_time?.slice(0, 5) ?? ''
 
   const togglePublish = useTogglePublish(date, meal)
   const updateCutoff = useUpdateMenuCutoff(date, meal)
@@ -211,10 +220,40 @@ export function DailyMenuPage() {
         </Button>
       </div>
 
+      {/* 24/7 Store Products Guidance Banner */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/5 p-3.5 text-xs text-foreground shadow-sm">
+        <div className="flex items-center gap-2.5">
+          <div className="rounded-lg bg-primary/10 p-2 text-primary shrink-0">
+            <Store className="size-4" />
+          </div>
+          <div>
+            <span className="font-semibold text-foreground">Selling everyday retail items like Farsan, Sweets, or Nasta?</span>
+            <p className="text-muted-foreground mt-0.5">
+              Items here in Daily Offerings follow meal cutoffs and dates. To sell products 24/7 all the time, manage them in Store Products.
+            </p>
+          </div>
+        </div>
+        <Link
+          to={ADMIN_ROUTES.storeProducts}
+          className="inline-flex items-center gap-1.5 font-semibold text-primary hover:underline shrink-0 bg-background px-3 py-1.5 rounded-lg border shadow-xs"
+        >
+          Manage Store Products
+          <ArrowRight className="size-3.5" />
+        </Link>
+      </div>
+
       {lockStatus.isLocked && (
         <div className="flex items-center gap-2.5 rounded-lg bg-amber-50 border border-amber-200/80 p-3 text-xs text-amber-950 font-medium shadow-sm">
           <Lock className="size-4 text-amber-600 shrink-0" />
           <span>{lockStatus.reason}</span>
+        </div>
+      )}
+      {!lockStatus.isLocked && lockStatus.isCustomerCutoffPassed && (
+        <div className="flex items-center gap-2.5 rounded-lg bg-amber-50 border border-amber-200/80 p-3 text-xs text-amber-950 font-medium shadow-sm">
+          <Clock className="size-4 text-amber-600 shrink-0" />
+          <span>
+            Customer ordering cutoff for this meal has passed ({lockStatus.cutoffDisplay ?? 'Closed'}). Admin management and inventory editing remain active.
+          </span>
         </div>
       )}
 
@@ -244,7 +283,7 @@ export function DailyMenuPage() {
 
           {menu ? (
             <div className="flex flex-wrap items-center gap-6">
-              {/* Menu-level cutoff (fallback for items without their own) */}
+              {/* Menu-level cutoff (fallback to delivery slot cutoff from admin) */}
               <div className="flex items-center gap-2 rounded-lg bg-amber-50/80 px-3 py-1.5 border border-amber-200/80">
                 <Clock className="text-amber-700 size-4" aria-hidden />
                 <span className="text-xs font-semibold text-amber-950 uppercase tracking-wider">Menu Cutoff:</span>
@@ -252,7 +291,7 @@ export function DailyMenuPage() {
                   type="time"
                   disabled={lockStatus.isLocked}
                   className="w-24 h-7 text-xs font-semibold bg-white border-amber-300"
-                  value={menu.cutoff_time?.slice(0, 5) ?? (meal === 'lunch' ? '10:30' : meal === 'dinner' ? '17:30' : '08:00')}
+                  value={menu.cutoff_time?.slice(0, 5) ?? defaultSlotCutoff}
                   onChange={(e) =>
                     updateCutoff.mutate({ id: menu.id, cutoff_time: e.target.value || null })
                   }

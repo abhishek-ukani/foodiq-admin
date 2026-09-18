@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { getDefaultBranchId } from '@/lib/default-branch'
-import type { MealType, Tables } from '@/types/database.types'
+import type { MealType, Tables, TablesUpdate } from '@/types/database.types'
 
 export type DailyMenuItemWithFood = Tables<'daily_menu_items'> & {
   food_items: Tables<'food_items'>
@@ -33,7 +33,7 @@ export async function autoPopulateDailyMenuWithActiveItems(dailyMenuId: string):
   const thaliItems = foodItems.filter((item) => {
     const catType = (item.categories as any)?.category_type
     return (
-      item.kind === 'composite' ||
+      item.kind === 'thali' ||
       catType === 'thali' ||
       item.name.toLowerCase().includes('thali')
     )
@@ -117,7 +117,7 @@ export async function addItemToMenu(
     .maybeSingle()
 
   if (existing) {
-    const updatePayload: Record<string, any> = {}
+    const updatePayload: TablesUpdate<'daily_menu_items'> = {}
     if (options?.is_standalone_sale !== undefined) updatePayload.is_standalone_sale = options.is_standalone_sale
     if (options?.is_thali_option !== undefined) updatePayload.is_thali_option = options.is_thali_option
 
@@ -214,7 +214,7 @@ export async function decrementOrderItemsSoldQty(orderId: string): Promise<void>
 
   for (const oi of orderItems) {
     const deliveryDate = (oi.orders as any)?.delivery_date as string | undefined
-    if (!deliveryDate) continue
+    if (!deliveryDate || !oi.food_item_id) continue
 
     const { data: menuRow } = await supabase
       .from('daily_menu_items')
@@ -275,6 +275,8 @@ export async function copyPreviousMenu(
       food_item_id: i.food_item_id,
       is_special: i.is_special,
       display_order: i.display_order,
+      is_standalone_sale: true,
+      is_thali_option: false,
     }))
 
   if (newItemsToInsert.length > 0) {

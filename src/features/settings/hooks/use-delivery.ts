@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { ADMIN_QUERY_KEYS } from '@/constants'
+import type { TablesInsert, TablesUpdate } from '@/types/database.types'
 import {
   createDeliveryArea,
   createDeliveryFeeRule,

@@ -7,6 +7,7 @@ import {
   fetchCategories,
   updateCategory,
 } from '@/features/menu/services/categories-service'
+import { broadcastCatalogUpdate } from '@/lib/realtime-sync'
 import type { TablesInsert, TablesUpdate } from '@/types/database.types'
 
 export function useCategories() {
@@ -19,6 +20,7 @@ export function useCreateCategory() {
     mutationFn: (input: TablesInsert<'categories'>) => createCategory(input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.categories })
+      broadcastCatalogUpdate('category_created')
       toast.success('Category created')
     },
     onError: (error) => toast.error(error.message),
@@ -32,6 +34,7 @@ export function useUpdateCategory() {
       updateCategory(id, input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.categories })
+      broadcastCatalogUpdate('category_updated')
       toast.success('Category updated')
     },
     onError: (error) => toast.error(error.message),
@@ -44,6 +47,7 @@ export function useDeleteCategory() {
     mutationFn: (id: string) => deleteCategory(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.categories })
+      broadcastCatalogUpdate('category_deleted')
       toast.success('Category deleted')
     },
     onError: (error) => toast.error(error.message),

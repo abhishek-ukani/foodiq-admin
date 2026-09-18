@@ -15,9 +15,9 @@ export const foodItemSchema = z
     image_url: z.string().nullable(),
     is_available: z.boolean(),
     is_featured: z.boolean(),
-    is_swaminarayan_available: z.boolean().default(false),
-    is_vaishnav_available: z.boolean().default(false),
-    is_jain_available: z.boolean().default(false),
+    is_swaminarayan_available: z.boolean(),
+    is_vaishnav_available: z.boolean(),
+    is_jain_available: z.boolean(),
     track_stock: z.boolean(),
     stock_quantity: z.number().int().min(0),
   })

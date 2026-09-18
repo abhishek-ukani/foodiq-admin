@@ -117,11 +117,7 @@ export function DeliveryAreasTab() {
     updateConfig.mutate(
       {
         key: 'kitchen_location',
-        input: {
-          value: { lat, lng },
-          description: 'Kitchen GPS coordinates for delivery distance calculation',
-          is_public: true,
-        },
+        value: { lat, lng } as any,
       },
       { onSuccess: () => setIsEditingKitchen(false) },
     )

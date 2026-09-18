@@ -2,13 +2,13 @@ import { useEffect } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet'
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -29,7 +29,7 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { ImageUpload } from '@/components/common/image-upload'
-import { ItemCustomizationsManager } from '@/features/food-items/components/item-customizations-manager'
+import { ItemVariantsManager } from '@/features/food-items/components/item-variants-manager'
 import { foodItemSchema, slugify, type FoodItemInput } from '@/features/food-items/schemas/food-item-schema'
 import { useCreateFoodItem, useUpdateFoodItem } from '@/features/food-items/hooks/use-food-items'
 import { useCategories } from '@/features/menu/hooks/use-categories'
@@ -62,7 +62,7 @@ export function FoodItemFormSheet({
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
-  item: FoodItemWithCategory | null
+  item?: FoodItemWithCategory | null
 }) {
   const isEditing = Boolean(item)
   const { data: categories } = useCategories()
@@ -120,17 +120,17 @@ export function FoodItemFormSheet({
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-lg">
-        <SheetHeader>
-          <SheetTitle>{isEditing ? 'Edit food item' : 'New food item'}</SheetTitle>
-          <SheetDescription>
-            {isEditing ? 'Update this dish.' : 'Add a single dish to your catalog.'}
-          </SheetDescription>
-        </SheetHeader>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl sm:max-w-3xl lg:max-w-4xl max-h-[90vh] overflow-y-auto p-5 sm:p-7">
+        <DialogHeader>
+          <DialogTitle className="text-xl font-display">{isEditing ? 'Edit Food Item' : 'New Food Item'}</DialogTitle>
+          <DialogDescription className="text-xs sm:text-sm text-muted-foreground">
+            {isEditing ? 'Update this dish, pricing, and packaging variants.' : 'Add a single dish to your catalog.'}
+          </DialogDescription>
+        </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 px-4 pb-6" noValidate>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-2" noValidate>
             <FormField
               control={form.control}
               name="image_url"
@@ -145,7 +145,7 @@ export function FoodItemFormSheet({
               )}
             />
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
                 name="name"
@@ -186,48 +186,50 @@ export function FoodItemFormSheet({
               />
             </div>
 
-            <FormField
-              control={form.control}
-              name="slug"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Slug</FormLabel>
-                  <FormControl>
-                    <Input placeholder="gujarati-thali" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="category_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Category</FormLabel>
-                  <Select
-                    value={field.value ?? 'none'}
-                    onValueChange={(v) => field.onChange(v === 'none' ? null : v)}
-                  >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="slug"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Slug</FormLabel>
                     <FormControl>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select a category" />
-                      </SelectTrigger>
+                      <Input placeholder="gujarati-thali" {...field} />
                     </FormControl>
-                    <SelectContent>
-                      <SelectItem value="none">Uncategorized</SelectItem>
-                      {categories?.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="category_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Category</FormLabel>
+                    <Select
+                      value={field.value ?? 'none'}
+                      onValueChange={(v) => field.onChange(v === 'none' ? null : v)}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select a category" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="none">Uncategorized</SelectItem>
+                        {categories?.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
             <FormField
               control={form.control}
@@ -236,7 +238,7 @@ export function FoodItemFormSheet({
                 <FormItem>
                   <FormLabel>Description (optional)</FormLabel>
                   <FormControl>
-                    <Textarea rows={3} placeholder="What's in this dish?" {...field} />
+                    <Textarea rows={2} placeholder="What's in this dish?" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -244,15 +246,15 @@ export function FoodItemFormSheet({
             />
 
             {/* Pricing — 3-column: price / compare_price (MRP) / cost_price (internal) */}
-            <div className="rounded-lg border p-3 space-y-3">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Pricing</p>
-              <div className="grid grid-cols-3 gap-3">
+            <div className="rounded-xl border p-3.5 space-y-3 bg-muted/20">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Catalog Pricing</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <FormField
                   control={form.control}
                   name="price"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Sell Price (₹)</FormLabel>
+                      <FormLabel>Sell Price (₹) *</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
@@ -317,85 +319,89 @@ export function FoodItemFormSheet({
             </div>
 
             {/* Preparation Special Options (Swaminarayan, Vaishnav & Jain) */}
-            <div className="rounded-lg border bg-amber-50/50 p-3 space-y-3">
+            <div className="rounded-xl border bg-amber-50/40 border-amber-200/80 p-3.5 space-y-3">
               <p className="text-xs font-semibold text-amber-900 uppercase tracking-wider">Special Dietary Preparations</p>
               
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="flex items-center justify-between gap-2 p-2.5 rounded-lg border bg-white/60">
+                  <div>
+                    <p className="text-xs font-semibold text-amber-950">Swaminarayan</p>
+                    <p className="text-[10px] text-muted-foreground">No onion, garlic, roots</p>
+                  </div>
+                  <FormField
+                    control={form.control}
+                    name="is_swaminarayan_available"
+                    render={({ field }) => (
+                      <Switch checked={field.value} onCheckedChange={field.onChange} />
+                    )}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between gap-2 p-2.5 rounded-lg border bg-white/60">
+                  <div>
+                    <p className="text-xs font-semibold text-amber-950">Vaishnav</p>
+                    <p className="text-[10px] text-muted-foreground">Sattvic preparation</p>
+                  </div>
+                  <FormField
+                    control={form.control}
+                    name="is_vaishnav_available"
+                    render={({ field }) => (
+                      <Switch checked={field.value} onCheckedChange={field.onChange} />
+                    )}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between gap-2 p-2.5 rounded-lg border bg-white/60">
+                  <div>
+                    <p className="text-xs font-semibold text-amber-950">Jain</p>
+                    <p className="text-[10px] text-muted-foreground">Strict Jain diet</p>
+                  </div>
+                  <FormField
+                    control={form.control}
+                    name="is_jain_available"
+                    render={({ field }) => (
+                      <Switch checked={field.value} onCheckedChange={field.onChange} />
+                    )}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div className="flex items-center justify-between rounded-xl border p-3 bg-muted/10">
+                <div>
+                  <p className="text-xs sm:text-sm font-medium">Available</p>
+                  <p className="text-muted-foreground text-[11px]">Visible to customers when on menu</p>
+                </div>
+                <FormField
+                  control={form.control}
+                  name="is_available"
+                  render={({ field }) => (
+                    <Switch checked={field.value} onCheckedChange={field.onChange} />
+                  )}
+                />
+              </div>
+
+              <div className="flex items-center justify-between rounded-xl border p-3 bg-muted/10">
+                <div>
+                  <p className="text-xs sm:text-sm font-medium">Featured</p>
+                  <p className="text-muted-foreground text-[11px]">Highlight in popular sections</p>
+                </div>
+                <FormField
+                  control={form.control}
+                  name="is_featured"
+                  render={({ field }) => (
+                    <Switch checked={field.value} onCheckedChange={field.onChange} />
+                  )}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-3 rounded-xl border p-3.5 bg-muted/10">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-amber-950">Swaminarayan Available</p>
-                  <p className="text-muted-foreground text-xs">Prepared without onion, garlic, or root vegetables</p>
-                </div>
-                <FormField
-                  control={form.control}
-                  name="is_swaminarayan_available"
-                  render={({ field }) => (
-                    <Switch checked={field.value} onCheckedChange={field.onChange} />
-                  )}
-                />
-              </div>
-
-              <div className="flex items-center justify-between border-t border-amber-200/60 pt-2">
-                <div>
-                  <p className="text-sm font-medium text-amber-950">Vaishnav Available</p>
-                  <p className="text-muted-foreground text-xs">Sattvic preparation adhering to Vaishnav rules</p>
-                </div>
-                <FormField
-                  control={form.control}
-                  name="is_vaishnav_available"
-                  render={({ field }) => (
-                    <Switch checked={field.value} onCheckedChange={field.onChange} />
-                  )}
-                />
-              </div>
-
-              <div className="flex items-center justify-between border-t border-amber-200/60 pt-2">
-                <div>
-                  <p className="text-sm font-medium text-amber-950">Jain Available</p>
-                  <p className="text-muted-foreground text-xs">Strict Jain preparation option available</p>
-                </div>
-                <FormField
-                  control={form.control}
-                  name="is_jain_available"
-                  render={({ field }) => (
-                    <Switch checked={field.value} onCheckedChange={field.onChange} />
-                  )}
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between rounded-lg border p-3">
-              <div>
-                <p className="text-sm font-medium">Available</p>
-                <p className="text-muted-foreground text-xs">Visible to customers when on a menu</p>
-              </div>
-              <FormField
-                control={form.control}
-                name="is_available"
-                render={({ field }) => (
-                  <Switch checked={field.value} onCheckedChange={field.onChange} />
-                )}
-              />
-            </div>
-
-            <div className="flex items-center justify-between rounded-lg border p-3">
-              <div>
-                <p className="text-sm font-medium">Featured</p>
-                <p className="text-muted-foreground text-xs">Highlight in popular/featured sections</p>
-              </div>
-              <FormField
-                control={form.control}
-                name="is_featured"
-                render={({ field }) => (
-                  <Switch checked={field.value} onCheckedChange={field.onChange} />
-                )}
-              />
-            </div>
-
-            <div className="space-y-3 rounded-lg border p-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">Track stock</p>
-                  <p className="text-muted-foreground text-xs">Limit how many can be ordered per day</p>
+                  <p className="text-xs sm:text-sm font-medium">Track stock</p>
+                  <p className="text-muted-foreground text-[11px]">Limit how many can be ordered per day</p>
                 </div>
                 <FormField
                   control={form.control}
@@ -411,13 +417,14 @@ export function FoodItemFormSheet({
                   name="stock_quantity"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Stock quantity</FormLabel>
+                      <FormLabel className="text-xs">Stock quantity</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
                           min={0}
                           value={field.value}
                           onChange={(e) => field.onChange(e.target.valueAsNumber || 0)}
+                          className="w-36 h-10 text-xs"
                         />
                       </FormControl>
                       <FormMessage />
@@ -427,20 +434,30 @@ export function FoodItemFormSheet({
               ) : null}
             </div>
 
-            <SheetFooter className="px-0">
-              <Button type="submit" disabled={isSubmitting} className="w-full">
+            {/* Packaging & Weight Variants (when editing an existing item) */}
+            {isEditing && item ? (
+              <div className="pt-2">
+                <ItemVariantsManager foodItemId={item.id} defaultPrice={item.price} />
+              </div>
+            ) : null}
+
+            {/* Dialog Footer with Cancel and Save buttons at bottom */}
+            <DialogFooter className="pt-4 gap-2 border-t mt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                className="h-11 min-w-[90px]"
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isSubmitting} className="h-11 min-w-[130px]">
                 {isSubmitting ? 'Saving…' : isEditing ? 'Save changes' : 'Create food item'}
               </Button>
-            </SheetFooter>
+            </DialogFooter>
           </form>
         </Form>
-
-        {isEditing && item ? (
-          <div className="px-4 pb-6">
-            <ItemCustomizationsManager foodItemId={item.id} />
-          </div>
-        ) : null}
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   )
 }

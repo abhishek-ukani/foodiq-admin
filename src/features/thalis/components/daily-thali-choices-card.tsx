@@ -1,6 +1,19 @@
 import { useState } from 'react'
 import dayjs from 'dayjs'
-import { CalendarDays, ChevronDown, ChevronUp, Clock, Package, Plus, Sparkles, SlidersHorizontal, Trash2, UtensilsCrossed, Globe, Lock, AlertTriangle } from 'lucide-react'
+import {
+  CalendarDays,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  Package,
+  Plus,
+  Sparkles,
+  SlidersHorizontal,
+  Trash2,
+  UtensilsCrossed,
+  Globe,
+  Lock,
+} from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -31,7 +44,6 @@ import {
 import {
   useThaliComponents,
   useAddThaliComponent,
-  useToggleThaliComponent,
   useRemoveThaliComponent,
 } from '../services/thali-components-service'
 import { checkMenuEditLock } from '@/features/menu/utils/menu-cutoff'
@@ -139,7 +151,6 @@ export function DailyThaliChoicesCard() {
   const toggleSpecial = useToggleMenuItemSpecial(menu?.id)
   const toggleThaliOption = useToggleMenuItemThaliOption(menu?.id)
   const addToGlobal = useAddThaliComponent()
-  const toggleGlobal = useToggleThaliComponent()
   const removeFromGlobal = useRemoveThaliComponent()
   const updateInventory = useUpdateMenuItemInventory(menu?.id)
 
@@ -224,6 +235,14 @@ export function DailyThaliChoicesCard() {
           <div className="flex items-center gap-2.5 rounded-lg bg-amber-50 border border-amber-200/80 p-3 text-xs text-amber-950 font-medium">
             <Lock className="size-4 text-amber-600 shrink-0" />
             <span>{lockStatus.reason}</span>
+          </div>
+        )}
+        {!lockStatus.isLocked && lockStatus.isCustomerCutoffPassed && (
+          <div className="flex items-center gap-2.5 rounded-lg bg-amber-50 border border-amber-200/80 p-3 text-xs text-amber-950 font-medium">
+            <Clock className="size-4 text-amber-600 shrink-0" />
+            <span>
+              Customer ordering cutoff for this meal has passed ({lockStatus.cutoffDisplay ?? 'Closed'}). Admin management remains active.
+            </span>
           </div>
         )}
 

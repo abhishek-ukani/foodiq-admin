@@ -6,7 +6,6 @@ import {
   Trash2,
   Edit2,
   Sparkles,
-  X,
   Globe,
   Pin,
 } from 'lucide-react'
@@ -73,6 +72,9 @@ const DEFAULT_VALUES: FoodItemInput = {
   image_url: null,
   is_available: true,
   is_featured: false,
+  is_swaminarayan_available: false,
+  is_vaishnav_available: false,
+  is_jain_available: false,
   track_stock: false,
   stock_quantity: 0,
 }
@@ -165,6 +167,9 @@ export function ThaliEditorSheet({
               image_url: thaliItem.image_url,
               is_available: thaliItem.is_available,
               is_featured: thaliItem.is_featured,
+              is_swaminarayan_available: (thaliItem as any).is_swaminarayan_available ?? false,
+              is_vaishnav_available: (thaliItem as any).is_vaishnav_available ?? false,
+              is_jain_available: (thaliItem as any).is_jain_available ?? false,
               track_stock: thaliItem.track_stock,
               stock_quantity: thaliItem.stock_quantity,
             }
@@ -201,6 +206,7 @@ export function ThaliEditorSheet({
             food_item_id: created.id,
             name: 'Select Sabji',
             group_type: 'daily_menu_choice',
+            target_category_type: 'sabji',
             min_select: 1,
             max_select: 1,
             is_required: true,
@@ -315,10 +321,8 @@ export function ThaliEditorSheet({
   const getMatchingGlobalOrDailyItems = (grp: ThaliOptionGroupWithItems) => {
     if (!foodItemsCatalog) return []
 
-    const globalList = Array.isArray(globalComponents) ? globalComponents : []
     const dailyList = Array.isArray(dailyMenuItems) ? dailyMenuItems : []
 
-    const globalFoodItemIds = new Set(globalList.filter((c) => (c as any).is_active !== false).map((c) => c.food_item_id))
     const dailyFoodItemIds = new Set(
       dailyList
         .filter((mi) => (mi as any).is_thali_option !== false)
@@ -940,7 +944,7 @@ export function ThaliEditorSheet({
                 </SelectTrigger>
                 <SelectContent>
                   {(foodItemsCatalog || [])
-                    .filter((f) => f.kind !== 'composite')
+                    .filter((f) => f.kind !== 'thali')
                     .map((item) => (
                       <SelectItem key={item.id} value={item.id}>
                         <span>{item.name}</span>

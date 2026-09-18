@@ -40,8 +40,8 @@ export function OrdersPage() {
       result = result.filter(
         (o) =>
           o.order_number.toLowerCase().includes(query) ||
-          o.contact_name.toLowerCase().includes(query) ||
-          o.contact_phone.includes(query) ||
+          o.contact_name?.toLowerCase().includes(query) ||
+          o.contact_phone?.includes(query) ||
           o.order_items?.some((item) => item.item_name.toLowerCase().includes(query)),
       )
     }

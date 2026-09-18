@@ -8,9 +8,10 @@ export const ADMIN_ROUTES = {
   orders: '/orders',
   orderDetail: (id: string) => `/orders/${id}`,
   dailyMenu: '/menu/daily',
+  thalis: '/menu/thalis',
+  storeProducts: '/menu/store-products',
   foodItems: '/menu/items',
   foodItemDetail: (id: string) => `/menu/items/${id}`,
-  thalis: '/menu/thalis',
   categories: '/menu/categories',
   pricing: '/pricing',
   customers: '/customers',
@@ -126,6 +127,7 @@ export const ADMIN_QUERY_KEYS = {
   upiQr: ['admin', 'upi-qr'] as const,
   banners: ['admin', 'banners'] as const,
   thaliOptionGroups: (foodItemId?: string) => ['admin', 'thali-option-groups', foodItemId] as const,
+  storeProducts: ['admin', 'store-products'] as const,
 } as const
 
 export const CURRENCY_SYMBOL = '₹'

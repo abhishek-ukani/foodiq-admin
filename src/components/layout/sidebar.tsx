@@ -12,6 +12,7 @@ import {
   BarChart3,
   Settings,
   Bell,
+  Store,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ADMIN_ROUTES } from '@/constants'
@@ -24,6 +25,7 @@ export const NAV_ITEMS = [
   { to: ADMIN_ROUTES.foodItems, label: 'Food Items', icon: UtensilsCrossed, end: false },
   { to: ADMIN_ROUTES.dailyMenu, label: 'Daily Menu', icon: CalendarDays, end: false },
   { to: ADMIN_ROUTES.thalis, label: 'Thali Options', icon: Sliders, end: false },
+  { to: ADMIN_ROUTES.storeProducts, label: 'Store Products', icon: Store, end: false },
   { to: ADMIN_ROUTES.customers, label: 'Customers', icon: Users, end: false },
   { to: ADMIN_ROUTES.content, label: 'Content', icon: Image, end: false },
   { to: ADMIN_ROUTES.reports, label: 'Reports', icon: BarChart3, end: false },
