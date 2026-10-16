@@ -160,6 +160,8 @@ type AddressRow = {
   pincode: string
   latitude: number | null
   longitude: number | null
+  meal_type_tag: 'lunch' | 'dinner' | 'both'
+  preferred_time: string | null
   is_default: boolean
   created_at: string
   updated_at: string
@@ -213,6 +215,7 @@ type FoodItemRow = {
   rating_count: number
   total_sold: number
   display_order: number
+  product_code: string | null
   created_at: string
   updated_at: string
 }
@@ -381,6 +384,10 @@ type FoodItemVariantRow = {
   cost_price: number | null
   stock_status: StockStatus
   stock_quantity: number
+  variant_code: string | null
+  is_default: boolean
+  nutrition_per_unit: Json | null
+  allergens: string[] | null
   is_active: boolean
   display_order: number
   created_at: string
@@ -504,6 +511,8 @@ type OrderRow = {
   cancellation_reason: string | null
   rejection_reason: string | null
   preferred_lunch_time: string | null
+  meal_type: MealType | null
+  preferred_delivery_time: string | null
   is_out_of_zone: boolean
   zone_label: string | null
   placed_at: string
@@ -522,6 +531,9 @@ type OrderItemRow = {
   order_id: string
   food_item_id: string | null
   variant_id: string | null
+  product_code: string | null
+  variant_code: string | null
+  variant_sku: string | null
   item_name: string
   item_kind: ItemKind
   item_image_url: string | null

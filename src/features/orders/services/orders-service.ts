@@ -7,6 +7,11 @@ export type AdminOrder = Tables<'orders'> & { order_items: Tables<'order_items'>
 
 export type AdminOrderItemInput = {
   food_item_id: string
+  variant_id?: string | null
+  product_code?: string | null
+  variant_code?: string | null
+  variant_sku?: string | null
+  variant_snapshot?: any
   item_name: string
   item_kind: ItemKind
   item_image_url?: string | null
@@ -50,6 +55,7 @@ export type CreateAdminOrderInput = {
 export type FoodItemForOrder = Tables<'food_items'> & {
   categories: Pick<Tables<'categories'>, 'id' | 'name'> | null
   item_customizations: Tables<'item_customizations'>[]
+  food_item_variants: Tables<'food_item_variants'>[]
   thali_option_groups: (Tables<'thali_option_groups'> & {
     thali_option_items: Tables<'thali_option_items'>[]
   })[]
@@ -121,7 +127,7 @@ export async function fetchActiveDeliverySlots(): Promise<Tables<'delivery_slots
 export async function fetchFoodItemsForOrder(): Promise<FoodItemForOrder[]> {
   const { data, error } = await supabase
     .from('food_items')
-    .select('*, categories(id, name), item_customizations(*), thali_option_groups(*, thali_option_items(*))')
+    .select('*, categories(id, name), item_customizations(*), food_item_variants(*), thali_option_groups(*, thali_option_items(*))')
     .eq('is_available', true)
     .order('name', { ascending: true })
   if (error) throw error
@@ -332,8 +338,9 @@ export async function createAdminOrder(input: CreateAdminOrderInput): Promise<Ta
     dateCode = `${yy}${mm}${dd}`
   }
 
-  const randNum = Math.floor(1000 + Math.random() * 9000).toString()
-  const orderNumber = `FIQ-${catCode}-${slotCode}${dateCode}-${randNum}`
+  const timeSuffix = Date.now().toString().slice(-4)
+  const randNum = Math.floor(1000 + Math.random() * 9000).toString().slice(-2)
+  const orderNumber = `FIQ-${catCode}-${slotCode}${dateCode}-${timeSuffix}${randNum}`
 
   const orderInsert: TablesInsert<'orders'> = {
     order_number: orderNumber,
@@ -361,6 +368,7 @@ export async function createAdminOrder(input: CreateAdminOrderInput): Promise<Ta
     tax_amount: input.taxAmount,
     total_amount: input.totalAmount,
     special_instructions: input.specialInstructions ?? null,
+    meal_type: (input.deliverySlotLabel || '').toLowerCase().includes('dinner') ? 'dinner' : 'lunch',
     is_out_of_zone: false,
     placed_at: new Date().toISOString(),
   }
@@ -379,6 +387,11 @@ export async function createAdminOrder(input: CreateAdminOrderInput): Promise<Ta
   const itemsToInsert: TablesInsert<'order_items'>[] = input.items.map((item) => ({
     order_id: createdOrder.id,
     food_item_id: item.food_item_id,
+    variant_id: item.variant_id ?? null,
+    product_code: item.product_code ?? null,
+    variant_code: item.variant_code ?? null,
+    variant_sku: item.variant_sku ?? null,
+    variant_snapshot: item.variant_snapshot ?? null,
     item_name: item.item_name,
     item_kind: item.item_kind,
     item_image_url: item.item_image_url ?? null,
@@ -390,7 +403,23 @@ export async function createAdminOrder(input: CreateAdminOrderInput): Promise<Ta
     special_instructions: item.special_instructions ?? null,
   }))
 
-  const { error: itemsErr } = await supabase.from('order_items').insert(itemsToInsert)
+  let { error: itemsErr } = await supabase.from('order_items').insert(itemsToInsert)
+  if (
+    itemsErr &&
+    (itemsErr.message?.includes('product_code') ||
+      itemsErr.message?.includes('variant_code') ||
+      itemsErr.message?.includes('variant_sku'))
+  ) {
+    const fallbackItems = itemsToInsert.map((item) => {
+      const copy = { ...item }
+      delete (copy as any).product_code
+      delete (copy as any).variant_code
+      delete (copy as any).variant_sku
+      return copy
+    })
+    const fallbackRes = await supabase.from('order_items').insert(fallbackItems)
+    itemsErr = fallbackRes.error
+  }
   if (itemsErr) {
     throw new Error(`Order created but failed to save items: ${itemsErr.message}`)
   }

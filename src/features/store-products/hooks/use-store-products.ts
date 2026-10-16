@@ -11,9 +11,9 @@ import {
   updateProductPrice,
   updateStoreProduct,
   type AddFoodItemToStoreInput,
+  type StoreProduct,
 } from '../services/store-products-service'
 import { broadcastCatalogUpdate } from '@/lib/realtime-sync'
-import type { TablesUpdate } from '@/types/database.types'
 
 export function useStoreProducts() {
   return useQuery({
@@ -105,7 +105,7 @@ export function useAddFoodItemToStore() {
 export function useUpdateStoreProduct() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, input }: { id: string; input: TablesUpdate<'food_items'> }) =>
+    mutationFn: ({ id, input }: { id: string; input: Partial<StoreProduct> }) =>
       updateStoreProduct(id, input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.storeProducts })

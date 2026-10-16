@@ -43,12 +43,17 @@ import type { FoodItemForOrder, ResolvedAdminOptionGroup } from '@/features/orde
 import { fetchThaliOptionGroupsForAdminOrder } from '@/features/orders/services/orders-service'
 import { supabase } from '@/lib/supabase'
 import { CURRENCY_SYMBOL } from '@/constants'
-import type { OrderStatus, PaymentMethod, PaymentStatus } from '@/types/database.types'
+import type { OrderStatus } from '@/types/database.types'
 import toast from 'react-hot-toast'
 
 export type SelectedCartItem = {
   cartId: string
   food_item_id: string
+  product_code?: string | null
+  variant_id?: string | null
+  variant_code?: string | null
+  variant_sku?: string | null
+  variant_snapshot?: any
   item_name: string
   item_kind: 'single' | 'thali'
   item_image_url?: string | null
@@ -62,6 +67,11 @@ export type SelectedCartItem = {
   customization_total: number
   line_total: number
   special_instructions?: string
+}
+
+function isAddOnGroup(grp: { name: string }): boolean {
+  const n = grp.name.toLowerCase()
+  return n.includes('add-on') || n.includes('addon') || n.includes('extra')
 }
 
 interface CreateOrderDialogProps {
@@ -83,10 +93,13 @@ export function CreateOrderDialog({
   // Form State
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('')
   const { data: customerAddresses } = useCustomerAddresses(selectedCustomerId)
-
   const [customerSearch, setCustomerSearch] = useState('')
-  const [addressMode, setAddressMode] = useState<'saved' | 'new'>('saved')
-  const [selectedAddressId, setSelectedAddressId] = useState<string>('')
+
+  // Selected Customer's Default Address
+  const defaultAddress = useMemo(() => {
+    if (!customerAddresses || customerAddresses.length === 0) return null
+    return customerAddresses.find((a) => a.is_default) || customerAddresses[0]
+  }, [customerAddresses])
 
   // Quick Inline Customer Registration State
   const [isQuickCustomerOpen, setIsQuickCustomerOpen] = useState(false)
@@ -95,20 +108,9 @@ export function CreateOrderDialog({
   const [newCustEmail, setNewCustEmail] = useState('')
   const [isCreatingCust, setIsCreatingCust] = useState(false)
 
-  // Delivery Address fields
-  const [contactName, setContactName] = useState('')
-  const [contactPhone, setContactPhone] = useState('')
-  const [addressLine1, setAddressLine1] = useState('')
-  const [addressLine2, setAddressLine2] = useState('')
-  const [landmark, setLandmark] = useState('')
-  const [city, setCity] = useState('Surat')
-  const [state, setState] = useState('Gujarat')
-  const [pincode, setPincode] = useState('395007')
-  const [saveNewAddress, setSaveNewAddress] = useState(true)
-
-  // Delivery & Slot fields
+  // Delivery & Meal Type fields
   const [deliveryDate, setDeliveryDate] = useState(dayjs().format('YYYY-MM-DD'))
-  const [deliverySlotId, setDeliverySlotId] = useState<string>('')
+  const [mealType, setMealType] = useState<string>('lunch')
 
   // Item Search & Filter
   const [itemSearch, setItemSearch] = useState('')
@@ -117,18 +119,12 @@ export function CreateOrderDialog({
   // Cart Items State
   const [cartItems, setCartItems] = useState<SelectedCartItem[]>([])
 
-  // Financial & Payment State
-  const [deliveryCharge, setDeliveryCharge] = useState<number>(30)
+  // Financial & Order State (Delivery fee defaults to 0; payments collected manually)
+  const [deliveryCharge, setDeliveryCharge] = useState<number>(0)
   const [discountAmount, setDiscountAmount] = useState<number>(0)
   const [taxAmount, setTaxAmount] = useState<number>(0)
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | ''>('')
-  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus | ''>('')
-  const [paymentReference, setPaymentReference] = useState('')
   const [orderStatus, setOrderStatus] = useState<OrderStatus>('accepted')
   const [specialInstructions, setSpecialInstructions] = useState('')
-
-  // Address optional toggle
-  const [skipAddress, setSkipAddress] = useState(false)
 
   // Item Customization Modal / Sub-state
   const [customizingItem, setCustomizingItem] = useState<FoodItemForOrder | null>(null)
@@ -148,31 +144,6 @@ export function CreateOrderDialog({
   const selectedCustomer = useMemo(() => {
     return customers?.find((c) => c.id === selectedCustomerId)
   }, [customers, selectedCustomerId])
-
-  // Sync address fields when customer or saved address changes
-  useEffect(() => {
-    if (selectedCustomer) {
-      setContactName(selectedCustomer.full_name || '')
-      setContactPhone(selectedCustomer.phone || '')
-    }
-  }, [selectedCustomer])
-
-  useEffect(() => {
-    if (customerAddresses && customerAddresses.length > 0 && addressMode === 'saved') {
-      const defaultAddr = customerAddresses.find((a) => a.is_default) || customerAddresses[0]
-      if (defaultAddr) {
-        setSelectedAddressId(defaultAddr.id)
-        setContactName(defaultAddr.contact_name)
-        setContactPhone(defaultAddr.contact_phone)
-        setAddressLine1(defaultAddr.address_line1)
-        setAddressLine2(defaultAddr.address_line2 || '')
-        setLandmark(defaultAddr.landmark || '')
-        setCity(defaultAddr.city)
-        setState(defaultAddr.state)
-        setPincode(defaultAddr.pincode)
-      }
-    }
-  }, [customerAddresses, addressMode])
 
   // Filtered customer list for combobox/search
   const filteredCustomers = useMemo(() => {
@@ -218,8 +189,6 @@ export function CreateOrderDialog({
       toast.success(`Registered new customer: ${data.full_name}`)
       await refetchCustomers()
       setSelectedCustomerId(data.id)
-      setContactName(data.full_name || '')
-      setContactPhone(data.phone || '')
       setIsQuickCustomerOpen(false)
       setNewCustName('')
       setNewCustPhone('')
@@ -265,17 +234,6 @@ export function CreateOrderDialog({
     setTempAddons({})
     setTempNotes('')
 
-    // Default item customizations (add-ons)
-    const initialAddons: Record<string, boolean> = {}
-    if (item.item_customizations) {
-      item.item_customizations.forEach((cust) => {
-        if (cust.is_default) {
-          initialAddons[cust.id] = true
-        }
-      })
-    }
-    setTempAddons(initialAddons)
-
     // For thali items: dynamically fetch option groups (daily menu driven)
     if (item.kind === 'thali' || (item.thali_option_groups && item.thali_option_groups.length > 0)) {
       setIsLoadingThaliGroups(true)
@@ -283,10 +241,13 @@ export function CreateOrderDialog({
         const dynamicGroups = await fetchThaliOptionGroupsForAdminOrder(item.id, deliveryDate)
         setResolvedThaliGroups(dynamicGroups)
 
-        // Auto-select defaults
+        // Auto-select defaults ONLY for choice groups (Bread, Sabji, etc.), NEVER for add-on groups!
         const initialOpts: Record<string, { label: string; price_delta: number }> = {}
         dynamicGroups.forEach((grp) => {
-          const defaultOpt = grp.options.find((o) => o.is_default) || grp.options[0]
+          if (isAddOnGroup(grp)) return
+          const defaultOpt =
+            grp.options.find((o) => o.is_default && o.is_available) ||
+            (grp.is_required ? grp.options.find((o) => o.is_available) : undefined)
           if (defaultOpt) {
             initialOpts[grp.id] = { label: defaultOpt.label, price_delta: defaultOpt.price_delta }
           }
@@ -310,22 +271,40 @@ export function CreateOrderDialog({
 
     // Validate required thali option groups (dynamic resolved groups)
     for (const grp of resolvedThaliGroups) {
-      if (grp.is_required && !tempOptions[grp.id]) {
+      if (!isAddOnGroup(grp) && grp.is_required && !tempOptions[grp.id]) {
         toast.error(`Please make a selection for '${grp.name}'`)
         return
       }
     }
 
-    resolvedThaliGroups.forEach((grp) => {
-      const sel = tempOptions[grp.id]
-      if (sel) {
-        selectedOptionsList.push({
-          group_name: grp.name,
-          option_name: sel.label,
-          price_delta: sel.price_delta,
-        })
-        custTotal += sel.price_delta
-      }
+    // Only process standard choice groups (Bread, Sabji, etc.) from tempOptions
+    resolvedThaliGroups
+      .filter((grp) => !isAddOnGroup(grp))
+      .forEach((grp) => {
+        const sel = tempOptions[grp.id]
+        if (sel) {
+          selectedOptionsList.push({
+            group_name: grp.name,
+            option_name: sel.label,
+            price_delta: sel.price_delta,
+          })
+          custTotal += sel.price_delta
+        }
+      })
+
+    // Process add-ons from resolved thali option groups (Add-Ons)
+    const addOnGroups = resolvedThaliGroups.filter((g) => isAddOnGroup(g))
+    addOnGroups.forEach((grp) => {
+      grp.options.forEach((opt) => {
+        if (tempAddons[opt.id]) {
+          selectedOptionsList.push({
+            group_name: 'Add-on',
+            option_name: opt.label,
+            price_delta: Number(opt.price_delta || 0),
+          })
+          custTotal += Number(opt.price_delta || 0)
+        }
+      })
     })
 
     // Add selected standalone add-ons
@@ -397,6 +376,11 @@ export function CreateOrderDialog({
     const newCartItem: SelectedCartItem = {
       cartId: `${customizingItem.id}-${Date.now()}`,
       food_item_id: customizingItem.id,
+      product_code: customizingItem.product_code ?? null,
+      variant_id: null,
+      variant_code: null,
+      variant_sku: null,
+      variant_snapshot: null,
       item_name: customizingItem.name,
       item_kind: customizingItem.kind,
       item_image_url: customizingItem.image_url,
@@ -413,10 +397,11 @@ export function CreateOrderDialog({
     setResolvedThaliGroups([])
   }
 
-  // Directly add item if no options exist
-  const addSimpleItemToCart = (item: FoodItemForOrder) => {
-    const unitPrice = Number(item.compare_price ?? item.price)
-    const existingIndex = cartItems.findIndex((c) => c.food_item_id === item.id && c.selectedOptions.length === 0)
+  // Directly add item (or specific variant) to cart
+  const addSimpleItemToCart = (item: FoodItemForOrder, variant?: Tables<'food_item_variants'>) => {
+    const unitPrice = variant ? Number(variant.price) : Number(item.compare_price ?? item.price)
+    const cartKey = variant ? `${item.id}-${variant.id}` : item.id
+    const existingIndex = cartItems.findIndex((c) => c.cartId === cartKey && c.selectedOptions.length === 0)
 
     if (existingIndex > -1) {
       // Increment quantity
@@ -433,9 +418,25 @@ export function CreateOrderDialog({
       })
     } else {
       const newCartItem: SelectedCartItem = {
-        cartId: `${item.id}-${Date.now()}`,
+        cartId: cartKey,
         food_item_id: item.id,
-        item_name: item.name,
+        product_code: item.product_code ?? null,
+        variant_id: variant?.id ?? null,
+        variant_code: variant?.variant_code ?? null,
+        variant_sku: variant?.sku ?? null,
+        variant_snapshot: variant
+          ? {
+              variant_id: variant.id,
+              label: variant.label,
+              unit_type: variant.unit_type,
+              quantity: variant.quantity,
+              price_at_order: variant.price,
+              compare_price: variant.compare_price,
+              variant_code: variant.variant_code,
+              sku: variant.sku,
+            }
+          : null,
+        item_name: variant ? `${item.name} (${variant.label})` : item.name,
         item_kind: item.kind,
         item_image_url: item.image_url,
         unit_price: unitPrice,
@@ -493,26 +494,25 @@ export function CreateOrderDialog({
       return
     }
 
-    const selectedSlotObj = deliverySlots?.find((s) => s.id === deliverySlotId)
+    const mealLabel = mealType === 'dinner' ? 'Dinner' : 'Lunch'
 
     await createOrder.mutateAsync({
       userId: selectedCustomerId,
-      contactName: contactName || undefined,
-      contactPhone: contactPhone || undefined,
-      addressId: addressMode === 'saved' ? (selectedAddressId || undefined) : undefined,
-      addressLine1: addressLine1 || undefined,
-      addressLine2: addressLine2 || undefined,
-      landmark: landmark || undefined,
-      city: city || undefined,
-      state: state || undefined,
-      pincode: pincode || undefined,
-      saveNewAddress: addressMode === 'new' && saveNewAddress,
+      contactName: defaultAddress?.contact_name || selectedCustomer?.full_name || undefined,
+      contactPhone: defaultAddress?.contact_phone || selectedCustomer?.phone || undefined,
+      addressId: defaultAddress?.id || undefined,
+      addressLine1: defaultAddress?.address_line1 || undefined,
+      addressLine2: defaultAddress?.address_line2 || undefined,
+      landmark: defaultAddress?.landmark || undefined,
+      city: defaultAddress?.city || undefined,
+      state: defaultAddress?.state || undefined,
+      pincode: defaultAddress?.pincode || undefined,
       deliveryDate,
-      deliverySlotId: deliverySlotId || undefined,
-      deliverySlotLabel: selectedSlotObj ? `${selectedSlotObj.label} (${selectedSlotObj.start_time.slice(0, 5)} - ${selectedSlotObj.end_time.slice(0, 5)})` : undefined,
-      paymentMethod: paymentMethod || undefined,
-      paymentStatus: paymentStatus || undefined,
-      paymentReference: paymentReference || undefined,
+      deliverySlotId: undefined,
+      deliverySlotLabel: mealLabel,
+      paymentMethod: 'cash',
+      paymentStatus: 'pending',
+      paymentReference: undefined,
       orderStatus,
       subtotal,
       deliveryCharge: Number(deliveryCharge || 0),
@@ -522,6 +522,11 @@ export function CreateOrderDialog({
       specialInstructions: specialInstructions || undefined,
       items: cartItems.map((item) => ({
         food_item_id: item.food_item_id,
+        variant_id: item.variant_id ?? null,
+        product_code: item.product_code ?? null,
+        variant_code: item.variant_code ?? null,
+        variant_sku: item.variant_sku ?? null,
+        variant_snapshot: item.variant_snapshot ?? null,
         item_name: item.item_name,
         item_kind: item.item_kind,
         item_image_url: item.item_image_url,
@@ -536,12 +541,20 @@ export function CreateOrderDialog({
 
     // Reset and close
     setCartItems([])
+    setDeliveryCharge(0)
+    setDiscountAmount(0)
+    setTaxAmount(0)
+    setSpecialInstructions('')
     onOpenChange(false)
   }
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-4xl lg:max-w-5xl p-0 overflow-hidden flex flex-col bg-background border-l shadow-2xl">
+      <SheetContent
+        side="right"
+        showCloseButton={false}
+        className="w-full sm:max-w-4xl lg:max-w-5xl p-0 overflow-hidden flex flex-col bg-background border-l shadow-2xl"
+      >
         {/* HEADER BAR */}
         <div className="flex items-center justify-between px-6 py-4 border-b bg-card">
           <div className="flex items-center gap-3">
@@ -617,208 +630,51 @@ export function CreateOrderDialog({
                 </div>
 
                 {selectedCustomer && (
-                  <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 text-xs flex items-center justify-between">
-                    <div>
-                      <span className="font-semibold text-foreground">{selectedCustomer.full_name}</span>
-                      <p className="text-muted-foreground mt-0.5">{selectedCustomer.phone} • {selectedCustomer.email}</p>
+                  <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 text-xs space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="font-semibold text-foreground text-sm">{selectedCustomer.full_name}</span>
+                        <p className="text-muted-foreground mt-0.5">
+                          📞 {selectedCustomer.phone || 'No phone'} • ✉️ {selectedCustomer.email || 'No email'}
+                        </p>
+                      </div>
+                      <Badge variant="secondary" className="text-[10px]">Verified Profile</Badge>
                     </div>
-                    <Badge variant="secondary" className="text-[10px]">Verified Profile</Badge>
+
+                    {defaultAddress ? (
+                      <div className="pt-2 border-t border-primary/15 flex items-start gap-2">
+                        <MapPin className="size-3.5 text-primary shrink-0 mt-0.5" />
+                        <div className="space-y-0.5">
+                          <p className="text-[11px] font-medium text-foreground">
+                            Default Delivery Address <span className="text-muted-foreground font-normal">({defaultAddress.label || 'Saved'})</span>:
+                          </p>
+                          <p className="text-muted-foreground text-xs leading-relaxed">
+                            {defaultAddress.address_line1}
+                            {defaultAddress.address_line2 ? `, ${defaultAddress.address_line2}` : ''}
+                            {defaultAddress.landmark ? `, Near ${defaultAddress.landmark}` : ''}, {defaultAddress.city} - {defaultAddress.pincode}
+                          </p>
+                          <p className="text-muted-foreground text-[11px]">
+                            Recipient: {defaultAddress.contact_name} ({defaultAddress.contact_phone})
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="pt-2 border-t border-primary/15 flex items-center gap-1.5 text-amber-600 text-xs">
+                        <MapPin className="size-3.5 shrink-0" />
+                        <span>No saved default address found for this customer.</span>
+                      </div>
+                    )}
                   </div>
                 )}
               </CardContent>
             </Card>
 
-            {/* STEP 2: DELIVERY ADDRESS */}
-            <Card className="border shadow-xs">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-semibold flex items-center gap-2 text-foreground">
-                    <MapPin className="size-4 text-primary" />
-                    Step 2: Delivery Address
-                    <span className="text-muted-foreground font-normal text-[11px]">(Optional)</span>
-                  </CardTitle>
-                  <div className="flex items-center gap-1.5">
-                    <Button
-                      type="button"
-                      variant={skipAddress ? 'default' : 'outline'}
-                      size="xs"
-                      className={skipAddress ? 'text-[11px] bg-muted text-muted-foreground hover:bg-muted/80' : 'text-[11px]'}
-                      onClick={() => {
-                        setSkipAddress((v) => !v)
-                        if (!skipAddress) {
-                          setContactName('')
-                          setContactPhone('')
-                          setAddressLine1('')
-                          setAddressLine2('')
-                          setLandmark('')
-                          setCity('')
-                          setState('')
-                          setPincode('')
-                          setSelectedAddressId('')
-                        }
-                      }}
-                    >
-                      {skipAddress ? 'Add Address' : 'Skip for Now'}
-                    </Button>
-                    {!skipAddress && customerAddresses && customerAddresses.length > 0 && (
-                      <>
-                        <Button
-                          type="button"
-                          variant={addressMode === 'saved' ? 'default' : 'outline'}
-                          size="xs"
-                          onClick={() => setAddressMode('saved')}
-                        >
-                          Saved ({customerAddresses.length})
-                        </Button>
-                        <Button
-                          type="button"
-                          variant={addressMode === 'new' ? 'default' : 'outline'}
-                          size="xs"
-                          onClick={() => {
-                            setAddressMode('new')
-                            setSelectedAddressId('')
-                          }}
-                        >
-                          + New
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </CardHeader>
-              {skipAddress ? (
-                <div className="px-6 pb-4">
-                  <p className="text-xs text-muted-foreground italic">
-                    Address skipped — order will be saved without a delivery address.
-                  </p>
-                </div>
-              ) : (
-              <CardContent className="space-y-4">
-                {addressMode === 'saved' && customerAddresses && customerAddresses.length > 0 ? (
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-medium">Select Saved Address</Label>
-                    <Select
-                      value={selectedAddressId}
-                      onValueChange={(val) => {
-                        setSelectedAddressId(val)
-                        const addr = customerAddresses.find((a) => a.id === val)
-                        if (addr) {
-                          setContactName(addr.contact_name)
-                          setContactPhone(addr.contact_phone)
-                          setAddressLine1(addr.address_line1)
-                          setAddressLine2(addr.address_line2 || '')
-                          setLandmark(addr.landmark || '')
-                          setCity(addr.city)
-                          setState(addr.state)
-                          setPincode(addr.pincode)
-                        }
-                      }}
-                    >
-                      <SelectTrigger className="w-full h-9 text-xs">
-                        <SelectValue placeholder="Choose saved address" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {customerAddresses.map((addr) => (
-                          <SelectItem key={addr.id} value={addr.id}>
-                            <span className="font-semibold capitalize">{addr.label}: </span>
-                            {addr.address_line1}, {addr.city} ({addr.pincode})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                ) : null}
-
-                {/* Form inputs with spacious layout */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                  <div className="space-y-1">
-                    <Label className="text-xs font-medium">Recipient Name</Label>
-                    <Input
-                      value={contactName}
-                      onChange={(e) => setContactName(e.target.value)}
-                      placeholder="e.g. Ramesh Patel"
-                      className="h-9 text-xs"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs font-medium">Recipient Phone</Label>
-                    <Input
-                      value={contactPhone}
-                      onChange={(e) => setContactPhone(e.target.value)}
-                      placeholder="e.g. 9876543210"
-                      className="h-9 text-xs"
-                    />
-                  </div>
-                  <div className="sm:col-span-2 space-y-1">
-                    <Label className="text-xs font-medium">Address Line 1</Label>
-                    <Input
-                      value={addressLine1}
-                      onChange={(e) => setAddressLine1(e.target.value)}
-                      placeholder="House / Flat / Building No. / Street"
-                      className="h-9 text-xs"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs font-medium">Address Line 2</Label>
-                    <Input
-                      value={addressLine2}
-                      onChange={(e) => setAddressLine2(e.target.value)}
-                      placeholder="Area / Locality"
-                      className="h-9 text-xs"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs font-medium">Landmark</Label>
-                    <Input
-                      value={landmark}
-                      onChange={(e) => setLandmark(e.target.value)}
-                      placeholder="Nearby Landmark"
-                      className="h-9 text-xs"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs font-medium">City</Label>
-                    <Input
-                      value={city}
-                      onChange={(e) => setCity(e.target.value)}
-                      placeholder="City"
-                      className="h-9 text-xs"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs font-medium">Pincode</Label>
-                    <Input
-                      value={pincode}
-                      onChange={(e) => setPincode(e.target.value)}
-                      placeholder="Pincode"
-                      className="h-9 text-xs"
-                    />
-                  </div>
-                  {addressMode === 'new' && (
-                    <div className="sm:col-span-2 flex items-center gap-2 pt-1">
-                      <input
-                        type="checkbox"
-                        id="chk-save-addr"
-                        checked={saveNewAddress}
-                        onChange={(e) => setSaveNewAddress(e.target.checked)}
-                        className="size-4 accent-primary rounded cursor-pointer"
-                      />
-                      <label htmlFor="chk-save-addr" className="text-xs font-normal cursor-pointer text-foreground">
-                        Save this address to customer's saved profile
-                      </label>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-              )}
-            </Card>
-
-            {/* STEP 3: SCHEDULE & SLOT */}
+            {/* STEP 2: SCHEDULE & SLOT */}
             <Card className="border shadow-xs">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-semibold flex items-center gap-2 text-foreground">
                   <Calendar className="size-4 text-primary" />
-                  Step 3: Delivery Schedule
+                  Step 2: Delivery Schedule
                 </CardTitle>
               </CardHeader>
               <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -832,30 +688,27 @@ export function CreateOrderDialog({
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-medium">Delivery Slot</Label>
-                  <Select value={deliverySlotId} onValueChange={setDeliverySlotId}>
+                  <Label className="text-xs font-medium">Meal Type *</Label>
+                  <Select value={mealType} onValueChange={setMealType}>
                     <SelectTrigger className="h-9 text-xs">
-                      <SelectValue placeholder="Select delivery slot" />
+                      <SelectValue placeholder="Select meal type" />
                     </SelectTrigger>
                     <SelectContent>
-                      {deliverySlots?.map((slot) => (
-                        <SelectItem key={slot.id} value={slot.id}>
-                          {slot.label} ({slot.start_time.slice(0, 5)} - {slot.end_time.slice(0, 5)})
-                        </SelectItem>
-                      ))}
+                      <SelectItem value="lunch">☀️ Lunch</SelectItem>
+                      <SelectItem value="dinner">🌙 Dinner</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </CardContent>
             </Card>
 
-            {/* STEP 4: FOOD MENU SELECTION */}
+            {/* STEP 3: FOOD MENU SELECTION */}
             <Card className="border shadow-xs">
               <CardHeader className="pb-3">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                   <CardTitle className="text-sm font-semibold flex items-center gap-2 text-foreground">
                     <Utensils className="size-4 text-primary" />
-                    Step 4: Select Food Items
+                    Step 3: Select Food Items
                   </CardTitle>
                   <span className="text-xs text-muted-foreground">
                     {filteredFoodItems.length} Available items
@@ -896,15 +749,21 @@ export function CreateOrderDialog({
                     const hasOptions =
                       (item.thali_option_groups && item.thali_option_groups.length > 0) ||
                       (item.item_customizations && item.item_customizations.length > 0)
+                    const activeVariants = (item.food_item_variants || []).filter((v) => v.is_active)
 
                     return (
                       <div
                         key={item.id}
-                        className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/40 transition-colors text-xs"
+                        className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/40 transition-colors text-xs gap-2"
                       >
                         <div className="space-y-1">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-semibold text-sm text-foreground">{item.name}</span>
+                            {item.product_code && (
+                              <span className="font-mono text-[10px] bg-muted/80 border px-1.5 py-0.2 rounded text-muted-foreground font-semibold">
+                                {item.product_code}
+                              </span>
+                            )}
                             <Badge
                               variant="outline"
                               className={
@@ -929,29 +788,49 @@ export function CreateOrderDialog({
                               </span>
                             ) : null}
                           </p>
+
+                          {activeVariants.length > 0 && (
+                            <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                              <span className="text-[10px] text-muted-foreground font-medium">Sizes:</span>
+                              {activeVariants.map((v) => (
+                                <Button
+                                  key={v.id}
+                                  type="button"
+                                  size="xs"
+                                  variant="outline"
+                                  className="h-6 text-[10px] px-2 gap-1 border-primary/30 hover:bg-primary/10 hover:text-primary font-medium"
+                                  onClick={() => addSimpleItemToCart(item, v)}
+                                >
+                                  <Plus className="size-2.5" />
+                                  <span>{v.label}</span>
+                                  <span className="font-bold">({CURRENCY_SYMBOL}{v.price})</span>
+                                </Button>
+                              ))}
+                            </div>
+                          )}
                         </div>
 
                         {hasOptions ? (
                           <Button
                             size="sm"
                             variant="outline"
-                            className="gap-1.5 border-primary/40 text-primary hover:bg-primary/10 text-xs"
+                            className="gap-1.5 border-primary/40 text-primary hover:bg-primary/10 text-xs shrink-0 self-start sm:self-auto"
                             onClick={() => openCustomizer(item)}
                           >
                             <SlidersHorizontal className="size-3.5" />
                             Customize & Add
                           </Button>
-                        ) : (
+                        ) : activeVariants.length === 0 ? (
                           <Button
                             size="sm"
                             variant="secondary"
-                            className="gap-1.5 text-xs"
+                            className="gap-1.5 text-xs shrink-0 self-start sm:self-auto"
                             onClick={() => addSimpleItemToCart(item)}
                           >
                             <Plus className="size-3.5" />
                             Add
                           </Button>
-                        )}
+                        ) : null}
                       </div>
                     )
                   })}
@@ -989,9 +868,16 @@ export function CreateOrderDialog({
                       <div className="flex items-start justify-between">
                         <div>
                           <p className="font-semibold text-sm text-foreground">{item.item_name}</p>
-                          <p className="text-muted-foreground text-[11px]">
-                            Base: {CURRENCY_SYMBOL}{item.unit_price}
-                          </p>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="text-muted-foreground text-[11px]">
+                              Base: {CURRENCY_SYMBOL}{item.unit_price}
+                            </p>
+                            {item.variant_code && (
+                              <span className="font-mono text-[10px] bg-muted/80 border px-1.5 py-0.2 rounded text-muted-foreground font-semibold">
+                                {item.variant_code}
+                              </span>
+                            )}
+                          </div>
                         </div>
                         <p className="font-bold text-sm text-foreground">
                           {CURRENCY_SYMBOL}{item.line_total}
@@ -1089,45 +975,13 @@ export function CreateOrderDialog({
                 </div>
               </div>
 
-              {/* PAYMENT & ORDER CONTROLS */}
+              {/* ORDER SETTINGS & INSTRUCTIONS */}
               <div className="bg-card p-4 rounded-xl border space-y-3 text-xs shadow-2xs">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <Label className="text-xs font-medium">Payment Method <span className="text-muted-foreground font-normal">(Optional)</span></Label>
-                    <Select value={paymentMethod} onValueChange={(v) => setPaymentMethod(v === '__none__' ? '' : v as PaymentMethod)}>
-                      <SelectTrigger className="h-9 text-xs">
-                        <SelectValue placeholder="Not specified" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">Not specified</SelectItem>
-                        <SelectItem value="cash">Cash on Delivery</SelectItem>
-                        <SelectItem value="upi">UPI / Online</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs font-medium">Payment Status <span className="text-muted-foreground font-normal">(Optional)</span></Label>
-                    <Select value={paymentStatus} onValueChange={(v) => setPaymentStatus(v === '__none__' ? '' : v as PaymentStatus)}>
-                      <SelectTrigger className="h-9 text-xs">
-                        <SelectValue placeholder="Not specified" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">Not specified</SelectItem>
-                        <SelectItem value="paid">Paid</SelectItem>
-                        <SelectItem value="pending">Pending</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <Label className="text-xs font-medium">Txn Reference / Payment ID</Label>
-                  <Input
-                    placeholder="e.g. UPI Ref / Cash Receipt #"
-                    value={paymentReference}
-                    onChange={(e) => setPaymentReference(e.target.value)}
-                    className="h-9 text-xs"
-                  />
+                <div className="flex items-center justify-between pb-2 border-b">
+                  <span className="font-medium text-foreground">Payment Status</span>
+                  <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-300 dark:text-amber-400 text-[11px] font-medium">
+                    Pending (Collected Manually)
+                  </Badge>
                 </div>
 
                 <div className="space-y-1">
@@ -1261,10 +1115,7 @@ export function CreateOrderDialog({
                 </p>
               ) : (
                 resolvedThaliGroups
-                  .filter((g) => {
-                    const n = g.name.toLowerCase()
-                    return !n.includes('add-on') && !n.includes('addon')
-                  })
+                  .filter((g) => !isAddOnGroup(g))
                   .map((grp) => (
                     <div key={grp.id} className="space-y-2 border-b pb-3">
                       <div className="flex items-center justify-between text-xs font-semibold">
@@ -1340,10 +1191,7 @@ export function CreateOrderDialog({
                 let hasSabjiInCust = false
                 const addonElements: React.ReactNode[] = []
 
-                const addOnGroups = resolvedThaliGroups.filter((g) => {
-                  const n = g.name.toLowerCase()
-                  return n.includes('add-on') || n.includes('addon')
-                })
+                const addOnGroups = resolvedThaliGroups.filter((g) => isAddOnGroup(g))
 
                 addOnGroups.forEach((grp) => {
                   grp.options.forEach((opt) => {

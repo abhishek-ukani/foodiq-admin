@@ -22,17 +22,22 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Store, UtensilsCrossed, Search, X } from 'lucide-react'
 import { useCategories } from '@/features/menu/hooks/use-categories'
+import { CURRENCY_SYMBOL } from '@/constants'
 import { ItemVariantsManager } from '@/features/food-items/components/item-variants-manager'
+import { useFoodItemVariants } from '@/features/food-items/hooks/use-food-item-variants'
 import {
   useAddFoodItemToStore,
   useUnplacedFoodItems,
   useUpdateStoreProduct,
 } from '../hooks/use-store-products'
-import type { StoreProduct } from '../services/store-products-service'
+import { isDiningPortionUnit, type StoreProduct } from '../services/store-products-service'
 
 type FormData = {
   food_item_id: string
   category_id: string
+  price: number
+  compare_price: number | null
+  unit_label: string
   is_available: boolean
   track_stock: boolean
   stock_quantity: number
@@ -107,6 +112,9 @@ export function StoreProductDialog({
     defaultValues: {
       food_item_id: '',
       category_id: defaultCategoryId || '',
+      price: 0,
+      compare_price: null,
+      unit_label: '',
       is_available: true,
       track_stock: false,
       stock_quantity: 50,
@@ -117,12 +125,19 @@ export function StoreProductDialog({
   const selectedCat = watch('category_id')
   const isAvailable = watch('is_available')
   const trackStock = watch('track_stock')
+  const currentPrice = watch('price')
+  const currentComparePrice = watch('compare_price')
 
   // Find the selected food item from the unplaced list for display
   const selectedUnplacedItem = useMemo(() => {
     if (product) return null
     return unplacedItems.find((item) => item.id === selectedFoodItemId) || null
   }, [product, unplacedItems, selectedFoodItemId])
+
+  // Resolve active packaging variants for the target food item
+  const targetFoodItemId = product ? (product.food_item_id || product.id) : selectedFoodItemId
+  const { data: itemVariants } = useFoodItemVariants(targetFoodItemId || undefined)
+  const activeVariants = useMemo(() => (itemVariants || []).filter((v) => v.is_active), [itemVariants])
 
   // Filter unplaced items by search query
   const filteredUnplacedItems = useMemo(() => {
@@ -146,12 +161,26 @@ export function StoreProductDialog({
       setDishSearch('')
       setIsSearchFocused(false)
       if (product) {
-        // Edit mode for existing store product
+        // Edit mode for existing store product:
+        // Never allow dining portion units like "1 Bowl" or "1 Katori" to leak into retail products
+        const cleanUnit = isDiningPortionUnit(product.unit_label) ? '' : (product.unit_label ?? '')
+        const effectivePrice =
+          product.price && product.price > 0
+            ? product.price
+            : activeVariants.length > 0
+              ? activeVariants[0].price
+              : 0
+        const effectiveComparePrice =
+          product.compare_price ?? (activeVariants.length > 0 ? (activeVariants[0].compare_price ?? null) : null)
+
         reset({
-          food_item_id: product.id,
+          food_item_id: product.food_item_id || product.id,
           category_id: product.category_id || storeCategories[0]?.id || '',
+          price: effectivePrice,
+          compare_price: effectiveComparePrice,
+          unit_label: cleanUnit,
           is_available: product.is_available,
-          track_stock: product.track_stock,
+          track_stock: product.track_stock ?? false,
           stock_quantity: product.stock_quantity || 0,
         })
       } else {
@@ -170,13 +199,16 @@ export function StoreProductDialog({
         reset({
           food_item_id: '',
           category_id: defaultCat,
+          price: 0,
+          compare_price: null,
+          unit_label: '',
           is_available: true,
           track_stock: false,
           stock_quantity: 50,
         })
       }
     }
-  }, [open, product, defaultCategoryId, storeCategories, reset])
+  }, [open, product, defaultCategoryId, storeCategories, reset, activeVariants])
 
   // When admin selects a dish in Add Mode
   const handleSelectFoodItem = (itemId: string) => {
@@ -185,6 +217,9 @@ export function StoreProductDialog({
     setDishSearch('')
     const found = unplacedItems.find((i) => i.id === itemId)
     if (found) {
+      setValue('price', found.price ?? 0)
+      setValue('compare_price', found.compare_price ?? null)
+      setValue('unit_label', isDiningPortionUnit(found.unit_label) ? '' : (found.unit_label ?? ''))
       setValue('track_stock', found.track_stock ?? false)
       setValue('stock_quantity', found.stock_quantity ?? 50)
     }
@@ -200,12 +235,28 @@ export function StoreProductDialog({
   }
 
   const onSubmit = async (values: FormData) => {
+    const cleanUnit = isDiningPortionUnit(values.unit_label) ? null : (values.unit_label?.trim() || null)
+    const effectivePrice =
+      Number(values.price) > 0
+        ? Number(values.price)
+        : activeVariants.length > 0
+          ? activeVariants[0].price
+          : 0
+    const effectiveComparePrice = values.compare_price
+      ? Number(values.compare_price)
+      : activeVariants.length > 0
+        ? (activeVariants[0].compare_price ?? null)
+        : null
+
     if (product) {
       // Update existing store product settings
       await updateMutation.mutateAsync({
         id: product.id,
         input: {
           category_id: values.category_id || null,
+          price: effectivePrice,
+          compare_price: effectiveComparePrice,
+          unit_label: cleanUnit,
           is_available: values.is_available,
           track_stock: values.track_stock,
           stock_quantity: values.track_stock ? Number(values.stock_quantity) : 0,
@@ -218,9 +269,9 @@ export function StoreProductDialog({
       await addMutation.mutateAsync({
         foodItemId: values.food_item_id,
         categoryId: values.category_id,
-        price: foundItem?.price ?? 0,
-        comparePrice: foundItem?.compare_price ?? null,
-        unitLabel: foundItem?.unit_label ?? null,
+        price: effectivePrice || (foundItem?.price ?? 0),
+        comparePrice: effectiveComparePrice ?? (foundItem?.compare_price ?? null),
+        unitLabel: cleanUnit,
         isAvailable: values.is_available,
         trackStock: values.track_stock,
         stockQuantity: values.track_stock ? Number(values.stock_quantity) : 0,
@@ -491,6 +542,94 @@ export function StoreProductDialog({
             </Select>
           </div>
 
+          {/* ── 4. Store Retail Pricing & Discount ── */}
+          <div className="rounded-xl border p-3.5 space-y-3 bg-muted/20">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs sm:text-sm font-semibold text-foreground">
+                  Store Retail Pricing & Discount
+                </p>
+                <p className="text-[11px] sm:text-xs text-muted-foreground">
+                  Standalone selling price & MRP discount for 24/7 store orders (independent of kitchen/thali cost)
+                </p>
+              </div>
+              {currentComparePrice && currentPrice && Number(currentComparePrice) > Number(currentPrice) ? (
+                <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-semibold">
+                  {Math.round(((Number(currentComparePrice) - Number(currentPrice)) / Number(currentComparePrice)) * 100)}% OFF (Save {CURRENCY_SYMBOL}{Number(currentComparePrice) - Number(currentPrice)})
+                </Badge>
+              ) : null}
+            </div>
+
+            {/* Informational banner when pack variants exist */}
+            {activeVariants.length > 0 && (
+              <div className="rounded-lg bg-emerald-50/90 border border-emerald-200 p-2.5 text-xs text-emerald-950 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5">
+                <div>
+                  <span className="font-semibold text-emerald-900">
+                    {activeVariants.length} Retail Pack Sizes Configured:
+                  </span>{' '}
+                  <span className="text-emerald-800">
+                    {activeVariants.map((v) => `${v.label} (₹${v.price})`).join(' • ')}
+                  </span>
+                </div>
+                <Badge variant="outline" className="border-emerald-300 bg-white text-emerald-800 text-[10px] w-fit font-semibold">
+                  Pack Variants Active
+                </Badge>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">
+                  Store Selling Price ({CURRENCY_SYMBOL}) *
+                </Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  className="h-10 text-xs sm:text-sm font-bold text-emerald-800"
+                  {...register('price', { valueAsNumber: true })}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-muted-foreground">
+                  MRP / Strike Price ({CURRENCY_SYMBOL}, optional)
+                </Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  placeholder="e.g. 120"
+                  className="h-10 text-xs sm:text-sm"
+                  {...register('compare_price', {
+                    setValueAs: (v) => (v === '' || Number.isNaN(Number(v)) ? null : Number(v)),
+                  })}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-muted-foreground">
+                  Pack / Unit Label (optional)
+                </Label>
+                <Input
+                  type="text"
+                  placeholder={
+                    activeVariants.length > 0
+                      ? 'Managed by variants below'
+                      : 'e.g. 250 gm, 1 Pack, 10 pcs'
+                  }
+                  className="h-10 text-xs sm:text-sm"
+                  {...register('unit_label')}
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  {activeVariants.length > 0
+                    ? 'Pack sizes are defined in Product Variants below. Store items are never sold in bowls.'
+                    : 'Retail packaging unit. Store products are never sold in bowls.'}
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* ── 5. Inventory Management ── */}
           <div className="rounded-xl border p-3.5 space-y-3 bg-muted/20">
             <div className="flex items-center justify-between">
@@ -522,11 +661,22 @@ export function StoreProductDialog({
             )}
           </div>
 
-          {/* ── 6. Product Packaging Variants (when editing) ── */}
+          {/* ── 6. Product Packaging Variants (Weight & Pack Sizes) ── */}
           {product && (
             <ItemVariantsManager
-              foodItemId={product.id}
-              defaultPrice={product.price}
+              foodItemId={product.food_item_id || product.id}
+              defaultPrice={currentPrice || product.price}
+              productCode={product.product_code}
+              toggleOnly={false}
+            />
+          )}
+
+          {isAddMode && selectedFoodItemId && (
+            <ItemVariantsManager
+              foodItemId={selectedFoodItemId}
+              defaultPrice={currentPrice || selectedUnplacedItem?.price}
+              productCode={selectedUnplacedItem?.product_code}
+              toggleOnly={false}
             />
           )}
 

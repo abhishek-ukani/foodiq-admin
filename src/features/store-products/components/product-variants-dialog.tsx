@@ -11,10 +11,12 @@ import { ItemVariantsManager } from '@/features/food-items/components/item-varia
 
 export type VariantTargetProduct = {
   id: string
+  food_item_id?: string
   name: string
   name_gujarati?: string | null
   image_url?: string | null
   price?: number
+  product_code?: string | null
   categories?: { name: string } | null
 }
 
@@ -22,10 +24,12 @@ export function ProductVariantsDialog({
   open,
   onOpenChange,
   product,
+  toggleOnly = false,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   product: VariantTargetProduct | null
+  toggleOnly?: boolean
 }) {
   if (!product) return null
 
@@ -48,7 +52,9 @@ export function ProductVariantsDialog({
             <div>
               <DialogTitle className="text-lg sm:text-xl font-display flex items-center gap-2">
                 <Scale className="size-5 text-primary shrink-0" />
-                <span>{product.name} — Variants</span>
+                <span>
+                  {product.name} — {toggleOnly ? 'Available Variants' : 'Manage Variants'}
+                </span>
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground mt-0.5">
                 {product.name_gujarati && (
@@ -60,6 +66,11 @@ export function ProductVariantsDialog({
                   </Badge>
                 )}
                 Base Price: ₹{product.price ?? 0}
+                {toggleOnly && (
+                  <span className="ml-2 text-primary font-medium">
+                    • Enable or disable variants for 24/7 store selling
+                  </span>
+                )}
               </DialogDescription>
             </div>
           </div>
@@ -67,8 +78,10 @@ export function ProductVariantsDialog({
 
         <div className="pt-2">
           <ItemVariantsManager
-            foodItemId={product.id}
+            foodItemId={product.food_item_id || product.id}
             defaultPrice={product.price}
+            productCode={product.product_code}
+            toggleOnly={toggleOnly}
           />
         </div>
       </DialogContent>

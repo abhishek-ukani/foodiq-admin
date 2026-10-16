@@ -5,6 +5,7 @@ import {
   deleteFoodItemVariant,
   fetchAllFoodItemVariants,
   fetchFoodItemVariants,
+  setDefaultVariant,
   toggleVariantActive,
   updateFoodItemVariant,
   type CreateFoodItemVariantInput,
@@ -64,6 +65,20 @@ export function useUpdateFoodItemVariant(foodItemId: string) {
       toast.success('Variant updated')
     },
     onError: (error: Error) => toast.error(error.message || 'Failed to update variant'),
+  })
+}
+
+export function useSetDefaultVariant(foodItemId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (variantId: string) => setDefaultVariant(foodItemId, variantId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: VARIANTS_KEY(foodItemId) })
+      queryClient.invalidateQueries({ queryKey: ALL_VARIANTS_KEY })
+      broadcastCatalogUpdate('food_item_variant_updated')
+      toast.success('Default variant updated')
+    },
+    onError: (error: Error) => toast.error(error.message || 'Failed to set default variant'),
   })
 }
 

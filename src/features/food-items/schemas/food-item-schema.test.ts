@@ -40,4 +40,14 @@ describe('foodItemSchema', () => {
   it('rejects an invalid food_type', () => {
     expect(foodItemSchema.safeParse({ ...valid, food_type: 'meat' }).success).toBe(false)
   })
+
+  it('accepts valid SCREAMING_SNAKE_CASE product_code', () => {
+    const result = foodItemSchema.safeParse({ ...valid, product_code: 'THALI_VEG_REG' })
+    expect(result.success).toBe(true)
+  })
+
+  it('rejects invalid product_code with spaces or lowercase letters', () => {
+    const result = foodItemSchema.safeParse({ ...valid, product_code: 'thali veg' })
+    expect(result.success).toBe(false)
+  })
 })

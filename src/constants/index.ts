@@ -7,6 +7,8 @@ export const ADMIN_ROUTES = {
   dashboard: '/',
   orders: '/orders',
   orderDetail: (id: string) => `/orders/${id}`,
+  kitchenCalculator: '/kitchen-calculator',
+  expenses: '/expenses',
   dailyMenu: '/menu/daily',
   thalis: '/menu/thalis',
   storeProducts: '/menu/store-products',

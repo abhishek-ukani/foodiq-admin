@@ -1,0 +1,55 @@
+import {
+  Carrot,
+  ShoppingBag,
+  Fuel,
+  UtensilsCrossed,
+  Milk,
+  Package,
+  Flame,
+  Wrench,
+  Coins,
+  Truck,
+  Wallet,
+  Tag,
+  Receipt,
+  Sparkles,
+  Coffee,
+  Boxes,
+  type LucideIcon,
+} from 'lucide-react'
+
+export const ICON_MAP: Record<string, LucideIcon> = {
+  Carrot,
+  ShoppingBag,
+  Fuel,
+  UtensilsCrossed,
+  Milk,
+  Package,
+  Flame,
+  Wrench,
+  Coins,
+  Truck,
+  Wallet,
+  Tag,
+  Receipt,
+  Sparkles,
+  Coffee,
+  Boxes,
+}
+
+export const AVAILABLE_ICONS = Object.keys(ICON_MAP)
+
+export const PRESET_COLORS = [
+  { label: 'Emerald', hex: '#10b981' },
+  { label: 'Amber', hex: '#f59e0b' },
+  { label: 'Red', hex: '#ef4444' },
+  { label: 'Blue', hex: '#3b82f6' },
+  { label: 'Cyan', hex: '#06b6d4' },
+  { label: 'Purple', hex: '#8b5cf6' },
+  { label: 'Orange', hex: '#f97316' },
+  { label: 'Slate', hex: '#64748b' },
+  { label: 'Pink', hex: '#ec4899' },
+  { label: 'Teal', hex: '#14b8a6' },
+  { label: 'Indigo', hex: '#6366f1' },
+  { label: 'Lime', hex: '#84cc16' },
+]

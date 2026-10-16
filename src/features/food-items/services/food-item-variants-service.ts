@@ -34,6 +34,43 @@ export async function fetchAllFoodItemVariants(): Promise<FoodItemVariant[]> {
 }
 
 /**
+ * Generates a canonical SCREAMING_SNAKE_CASE product code.
+ * Example: generateProductCode('snack', 'Chakli Gujarati') -> "SNACK_CHAKLI_GUJARATI"
+ */
+export function generateProductCode(
+  categoryTypeOrName?: string | null,
+  itemName?: string | null,
+): string {
+  const cat = (categoryTypeOrName || 'ITEM')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .slice(0, 6) || 'ITEM'
+  const cleanName = (itemName || '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9\s]/g, '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 3)
+    .join('_')
+  return `${cat}_${cleanName || 'DISH'}`.slice(0, 24)
+}
+
+/**
+ * Generates a stable variant code from a product code, pack quantity, and unit.
+ * Example: generateVariantCode('SNACK_CHAKLI', 500, 'gm') -> "SNACK_CHAKLI_500GM"
+ */
+export function generateVariantCode(
+  productCode: string,
+  quantity: number,
+  unitType: string,
+): string {
+  const cleanPCode = (productCode || 'ITEM').toUpperCase().replace(/[^A-Z0-9_]/g, '')
+  const unit = (unitType || 'GM').toUpperCase()
+  return `${cleanPCode}_${quantity}${unit}`.slice(0, 32)
+}
+
+/**
  * Helper to generate a standardized SKU if one isn't explicitly provided.
  */
 export function generateVariantSku(
@@ -51,6 +88,8 @@ export type CreateFoodItemVariantInput = Omit<
   'sku'
 > & {
   sku?: string
+  variant_code?: string | null
+  product_code?: string | null
 }
 
 /**
@@ -59,9 +98,29 @@ export type CreateFoodItemVariantInput = Omit<
 export async function createFoodItemVariant(
   input: CreateFoodItemVariantInput,
 ): Promise<FoodItemVariant> {
+  const autoVariantCode = input.variant_code?.trim() || (
+    input.product_code
+      ? generateVariantCode(input.product_code, input.quantity, input.unit_type)
+      : null
+  )
+
   const payload = {
     ...input,
     sku: input.sku?.trim() || generateVariantSku(input.food_item_id, input.label, input.unit_type),
+    variant_code: autoVariantCode,
+  }
+  delete (payload as any).product_code
+
+  // If set as default, remove default flag from sibling variants first
+  if (input.is_default) {
+    try {
+      await supabase
+        .from('food_item_variants')
+        .update({ is_default: false })
+        .eq('food_item_id', input.food_item_id)
+    } catch {
+      // is_default column may not exist yet
+    }
   }
 
   const { data, error } = await supabase
@@ -70,7 +129,32 @@ export async function createFoodItemVariant(
     .select()
     .single()
 
-  if (error) throw error
+  if (error) {
+    if (
+      error.message?.includes('variant_code') ||
+      error.message?.includes('is_default') ||
+      error.message?.includes('nutrition_per_unit') ||
+      error.message?.includes('allergens') ||
+      (error as any).details?.includes('variant_code')
+    ) {
+      const fallbackPayload = { ...payload }
+      delete (fallbackPayload as any).variant_code
+      delete (fallbackPayload as any).is_default
+      delete (fallbackPayload as any).nutrition_per_unit
+      delete (fallbackPayload as any).allergens
+      const fallback = await supabase
+        .from('food_item_variants')
+        .insert(fallbackPayload)
+        .select()
+        .single()
+      if (fallback.error) throw fallback.error
+      console.warn(
+        'Created variant without variant_code/is_default. Run migration 20261002_01_product_variants_and_order_tracking.sql in Supabase.',
+      )
+      return fallback.data
+    }
+    throw error
+  }
   return data
 }
 
@@ -91,7 +175,33 @@ export async function updateFoodItemVariant(
     .select()
     .single()
 
-  if (error) throw error
+  if (error) {
+    if (
+      error.message?.includes('variant_code') ||
+      error.message?.includes('is_default') ||
+      error.message?.includes('nutrition_per_unit') ||
+      error.message?.includes('allergens') ||
+      (error as any).details?.includes('variant_code')
+    ) {
+      const fallbackInput = { ...input, updated_at: new Date().toISOString() }
+      delete (fallbackInput as any).variant_code
+      delete (fallbackInput as any).is_default
+      delete (fallbackInput as any).nutrition_per_unit
+      delete (fallbackInput as any).allergens
+      const fallback = await supabase
+        .from('food_item_variants')
+        .update(fallbackInput)
+        .eq('id', id)
+        .select()
+        .single()
+      if (fallback.error) throw fallback.error
+      console.warn(
+        'Updated variant without variant_code/is_default. Run migration 20261002_01_product_variants_and_order_tracking.sql in Supabase.',
+      )
+      return fallback.data
+    }
+    throw error
+  }
   return data
 }
 
@@ -113,6 +223,23 @@ export async function deleteFoodItemVariant(id: string): Promise<void> {
     .from('food_item_variants')
     .delete()
     .eq('id', id)
+
+  if (error) throw error
+}
+
+/**
+ * Sets a specific variant as the default for its food item, unsetting others.
+ */
+export async function setDefaultVariant(foodItemId: string, variantId: string): Promise<void> {
+  await supabase
+    .from('food_item_variants')
+    .update({ is_default: false })
+    .eq('food_item_id', foodItemId)
+
+  const { error } = await supabase
+    .from('food_item_variants')
+    .update({ is_default: true })
+    .eq('id', variantId)
 
   if (error) throw error
 }

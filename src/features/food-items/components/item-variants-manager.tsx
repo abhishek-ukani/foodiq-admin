@@ -8,6 +8,7 @@ import {
   Scale,
   Sparkles,
   Layers,
+  Star,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -26,9 +27,11 @@ import {
   useCreateFoodItemVariant,
   useDeleteFoodItemVariant,
   useFoodItemVariants,
+  useSetDefaultVariant,
   useToggleVariantActive,
   useUpdateFoodItemVariant,
 } from '../hooks/use-food-item-variants'
+import { generateVariantCode } from '../services/food-item-variants-service'
 import { CURRENCY_SYMBOL } from '@/constants'
 import type { FoodItemVariant } from '../services/food-item-variants-service'
 import type { UnitType } from '@/types/database.types'
@@ -46,13 +49,18 @@ const PRESETS: { label: string; unit_type: UnitType; quantity: number }[] = [
 export function ItemVariantsManager({
   foodItemId,
   defaultPrice = 0,
+  productCode,
+  toggleOnly = false,
 }: {
   foodItemId: string
   defaultPrice?: number
+  productCode?: string | null
+  toggleOnly?: boolean
 }) {
   const { data: variants = [], isPending } = useFoodItemVariants(foodItemId)
   const createMutation = useCreateFoodItemVariant(foodItemId)
   const updateMutation = useUpdateFoodItemVariant(foodItemId)
+  const setDefaultMutation = useSetDefaultVariant(foodItemId)
   const toggleMutation = useToggleVariantActive(foodItemId)
   const deleteMutation = useDeleteFoodItemVariant(foodItemId)
 
@@ -62,6 +70,8 @@ export function ItemVariantsManager({
   const [quantity, setQuantity] = useState<number | ''>(500)
   const [price, setPrice] = useState<number | ''>(defaultPrice || '')
   const [comparePrice, setComparePrice] = useState<number | ''>('')
+  const [variantCode, setVariantCode] = useState('')
+  const [isDefault, setIsDefault] = useState(false)
   const [showAddForm, setShowAddForm] = useState(false)
 
   // Editing existing variant state
@@ -69,6 +79,7 @@ export function ItemVariantsManager({
   const [editPrice, setEditPrice] = useState<number | ''>('')
   const [editComparePrice, setEditComparePrice] = useState<number | ''>('')
   const [editLabel, setEditLabel] = useState('')
+  const [editVariantCode, setEditVariantCode] = useState('')
 
   const handleApplyPreset = (preset: {
     label: string
@@ -78,6 +89,9 @@ export function ItemVariantsManager({
     setLabel(preset.label)
     setUnitType(preset.unit_type)
     setQuantity(preset.quantity)
+    if (productCode) {
+      setVariantCode(generateVariantCode(productCode, preset.quantity, preset.unit_type))
+    }
     setShowAddForm(true)
   }
 
@@ -100,6 +114,9 @@ export function ItemVariantsManager({
         stock_quantity: 50,
         is_active: true,
         display_order: variants.length,
+        variant_code: variantCode.trim() || undefined,
+        product_code: productCode,
+        is_default: isDefault,
       },
       {
         onSuccess: () => {
@@ -107,6 +124,8 @@ export function ItemVariantsManager({
           setPrice(defaultPrice || '')
           setComparePrice('')
           setQuantity(500)
+          setVariantCode('')
+          setIsDefault(false)
           setShowAddForm(false)
         },
       },
@@ -118,6 +137,7 @@ export function ItemVariantsManager({
     setEditPrice(v.price)
     setEditComparePrice(v.compare_price ?? '')
     setEditLabel(v.label)
+    setEditVariantCode(v.variant_code ?? '')
   }
 
   const cancelEdit = () => {
@@ -125,6 +145,7 @@ export function ItemVariantsManager({
     setEditPrice('')
     setEditComparePrice('')
     setEditLabel('')
+    setEditVariantCode('')
   }
 
   const saveEdit = (id: string) => {
@@ -138,6 +159,7 @@ export function ItemVariantsManager({
           label: editLabel.trim(),
           price: numPrice,
           compare_price: editComparePrice === '' ? null : Number(editComparePrice),
+          variant_code: editVariantCode.trim() || null,
         },
       },
       {
@@ -171,12 +193,14 @@ export function ItemVariantsManager({
               )}
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Sell by weight (e.g. 250 gm, 500 gm, 1 kg) with individual pricing & availability toggles.
+              {toggleOnly
+                ? 'Available pack sizes for retail store sale. Variants are created and configured in Store Products.'
+                : 'Configure retail pack sizes (e.g. 250 gm, 500 gm, 1 kg) with selling prices, MRP discounts & stock toggles.'}
             </p>
           </div>
         </div>
 
-        {!showAddForm && (
+        {!toggleOnly && !showAddForm && (
           <Button
             type="button"
             size="sm"
@@ -189,29 +213,31 @@ export function ItemVariantsManager({
         )}
       </div>
 
-      {/* ── Quick Preset Chips ── */}
-      <div className="space-y-1.5">
-        <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
-          <Sparkles className="size-3 text-primary" />
-          Quick Weight Presets:
-        </span>
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {PRESETS.map((preset) => (
-            <button
-              key={preset.label}
-              type="button"
-              onClick={() => handleApplyPreset(preset)}
-              className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-muted/30 hover:bg-primary/10 hover:border-primary/40 px-2.5 py-1 text-xs font-medium text-foreground transition-colors min-h-[34px]"
-            >
-              <Plus className="size-3 text-primary" />
-              {preset.label}
-            </button>
-          ))}
+      {/* ── Quick Preset Chips (Only when full management is enabled) ── */}
+      {!toggleOnly && (
+        <div className="space-y-1.5">
+          <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
+            <Sparkles className="size-3 text-primary" />
+            Quick Weight Presets:
+          </span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {PRESETS.map((preset) => (
+              <button
+                key={preset.label}
+                type="button"
+                onClick={() => handleApplyPreset(preset)}
+                className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-muted/30 hover:bg-primary/10 hover:border-primary/40 px-2.5 py-1 text-xs font-medium text-foreground transition-colors min-h-[34px]"
+              >
+                <Plus className="size-3 text-primary" />
+                {preset.label}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* ── Add Variant Form (Collapsible) ── */}
-      {showAddForm && (
+      {/* ── Add Variant Form (Collapsible, Food Items only) ── */}
+      {!toggleOnly && showAddForm && (
         <div className="rounded-xl border bg-muted/20 p-3.5 space-y-3 animate-in fade-in-0 zoom-in-98">
           <div className="flex items-center justify-between">
             <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
@@ -242,7 +268,12 @@ export function ItemVariantsManager({
               <Label className="text-xs font-semibold">Unit Type</Label>
               <Select
                 value={unitType}
-                onValueChange={(val: UnitType) => setUnitType(val)}
+                onValueChange={(val: UnitType) => {
+                  setUnitType(val)
+                  if (productCode && quantity) {
+                    setVariantCode(generateVariantCode(productCode, Number(quantity) || 1, val))
+                  }
+                }}
               >
                 <SelectTrigger className="h-10 text-xs sm:text-sm">
                   <SelectValue />
@@ -264,9 +295,13 @@ export function ItemVariantsManager({
                 min="1"
                 placeholder="e.g. 500"
                 value={quantity}
-                onChange={(e) =>
-                  setQuantity(e.target.value === '' ? '' : Number(e.target.value))
-                }
+                onChange={(e) => {
+                  const val = e.target.value === '' ? '' : Number(e.target.value)
+                  setQuantity(val)
+                  if (productCode && val) {
+                    setVariantCode(generateVariantCode(productCode, val, unitType))
+                  }
+                }}
                 className="h-10 text-xs sm:text-sm"
               />
             </div>
@@ -284,6 +319,27 @@ export function ItemVariantsManager({
                 }
                 className="h-10 text-xs sm:text-sm font-semibold text-emerald-800 dark:text-emerald-400"
               />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
+            <div className="space-y-1.5 min-w-0">
+              <Label className="text-xs font-semibold">Variant Code (Tracking ID)</Label>
+              <Input
+                placeholder="e.g. SNACK_CHAKLI_500GM"
+                value={variantCode}
+                onChange={(e) => setVariantCode(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, ''))}
+                className="h-10 text-xs font-mono font-medium tracking-wide uppercase"
+              />
+              <p className="text-[10px] text-muted-foreground">Unique code persisted onto orders for AI and analytics</p>
+            </div>
+
+            <div className="flex items-center justify-between rounded-lg border bg-background/50 px-3.5 py-2">
+              <div>
+                <Label className="text-xs font-semibold">Default Pack Size</Label>
+                <p className="text-[10px] text-muted-foreground">Pre-selected for customers on web</p>
+              </div>
+              <Switch checked={isDefault} onCheckedChange={setIsDefault} />
             </div>
           </div>
 
@@ -338,15 +394,28 @@ export function ItemVariantsManager({
       ) : variants.length === 0 ? (
         <div className="rounded-xl border border-dashed p-5 text-center bg-muted/15 space-y-2">
           <Scale className="size-6 text-muted-foreground/60 mx-auto" />
-          <p className="text-xs font-medium text-foreground">No variants configured yet</p>
+          <p className="text-xs font-semibold text-foreground">
+            {toggleOnly
+              ? 'No variants configured for this dish'
+              : 'No variants configured yet'}
+          </p>
           <p className="text-[11px] text-muted-foreground max-w-sm mx-auto">
-            Click any of the quick presets above (e.g. <strong>250 gm</strong>, <strong>500 gm</strong>, or <strong>1 kg</strong>) to set up packaging options for direct sale.
+            {toggleOnly ? (
+              <>
+                Packaging variants (e.g. 250 gm, 500 gm, 1 kg) can be created and priced in the{' '}
+                <strong className="text-foreground">Food Items</strong> catalog.
+              </>
+            ) : (
+              <>
+                Click any of the quick presets above (e.g. <strong>250 gm</strong>, <strong>500 gm</strong>, or <strong>1 kg</strong>) to set up packaging options for direct sale.
+              </>
+            )}
           </p>
         </div>
       ) : (
         <div className="space-y-2">
           {variants.map((v) => {
-            const isEditing = editingId === v.id
+            const isEditing = !toggleOnly && editingId === v.id
             const isActive = v.is_active
 
             return (
@@ -377,6 +446,12 @@ export function ItemVariantsManager({
                         onChange={(e) => setEditLabel(e.target.value)}
                         className="h-8 text-xs w-28"
                         placeholder="Label"
+                      />
+                      <Input
+                        value={editVariantCode}
+                        onChange={(e) => setEditVariantCode(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, ''))}
+                        className="h-8 text-xs font-mono w-32 uppercase"
+                        placeholder="Variant Code"
                       />
                       <div className="flex items-center gap-1">
                         <span className="text-xs text-muted-foreground">{CURRENCY_SYMBOL}</span>
@@ -412,6 +487,17 @@ export function ItemVariantsManager({
                         <span className="font-semibold text-sm text-foreground truncate">
                           {v.label}
                         </span>
+                        {v.is_default && (
+                          <Badge className="text-[10px] px-1.5 py-0 bg-amber-500 hover:bg-amber-600 text-white font-medium flex items-center gap-1">
+                            <Star className="size-2.5 fill-current" />
+                            Default
+                          </Badge>
+                        )}
+                        {v.variant_code && (
+                          <span className="font-mono text-[10px] bg-muted/80 border px-1.5 py-0.5 rounded text-foreground font-semibold">
+                            {v.variant_code}
+                          </span>
+                        )}
                         <Badge
                           variant={isActive ? 'default' : 'secondary'}
                           className={`text-[10px] px-2 py-0 ${
@@ -430,10 +516,15 @@ export function ItemVariantsManager({
                           {v.price}
                         </span>
                         {v.compare_price && v.compare_price > v.price && (
-                          <span className="text-muted-foreground text-[11px] line-through">
-                            {CURRENCY_SYMBOL}
-                            {v.compare_price}
-                          </span>
+                          <>
+                            <span className="text-muted-foreground text-[11px] line-through">
+                              {CURRENCY_SYMBOL}
+                              {v.compare_price}
+                            </span>
+                            <Badge className="text-[9px] px-1.5 py-0 bg-emerald-100 text-emerald-800 border border-emerald-300 font-semibold">
+                              {Math.round(((v.compare_price - v.price) / v.compare_price) * 100)}% OFF
+                            </Badge>
+                          </>
                         )}
                         <span className="text-[10px] text-muted-foreground">
                           ({v.quantity} {v.unit_type})
@@ -465,62 +556,77 @@ export function ItemVariantsManager({
                     />
                   </div>
 
-                  {/* Edit / Delete Buttons */}
-                  <div className="flex items-center gap-1">
-                    {isEditing ? (
-                      <>
+                  {/* Edit / Delete / Default Buttons (Only in full management mode, e.g. Food Items) */}
+                  {!toggleOnly && (
+                    <div className="flex items-center gap-1">
+                      {!isEditing && (
                         <Button
                           type="button"
                           variant="ghost"
                           size="icon"
-                          onClick={() => saveEdit(v.id)}
-                          disabled={updateMutation.isPending}
-                          className="size-8 text-emerald-700 hover:bg-emerald-50"
-                          title="Save changes"
+                          onClick={() => setDefaultMutation.mutate(v.id)}
+                          disabled={setDefaultMutation.isPending || v.is_default}
+                          className={`size-8 ${v.is_default ? 'text-amber-500' : 'text-muted-foreground/60 hover:text-amber-500'}`}
+                          title={v.is_default ? 'Default variant' : 'Set as default variant'}
                         >
-                          <Check className="size-4" />
+                          <Star className={`size-3.5 ${v.is_default ? 'fill-current text-amber-500' : ''}`} />
                         </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={cancelEdit}
-                          className="size-8 text-muted-foreground"
-                          title="Cancel edit"
-                        >
-                          <X className="size-4" />
-                        </Button>
-                      </>
-                    ) : (
-                      <>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => startEdit(v)}
-                          className="size-8 text-muted-foreground hover:text-foreground"
-                          title="Edit price or label"
-                        >
-                          <Edit2 className="size-3.5" />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            if (window.confirm(`Delete variant "${v.label}"?`)) {
-                              deleteMutation.mutate(v.id)
-                            }
-                          }}
-                          disabled={deleteMutation.isPending}
-                          className="size-8 text-destructive/80 hover:text-destructive hover:bg-destructive/10"
-                          title="Delete variant"
-                        >
-                          <Trash2 className="size-3.5" />
-                        </Button>
-                      </>
-                    )}
-                  </div>
+                      )}
+                      {isEditing ? (
+                        <>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => saveEdit(v.id)}
+                            disabled={updateMutation.isPending}
+                            className="size-8 text-emerald-700 hover:bg-emerald-50"
+                            title="Save changes"
+                          >
+                            <Check className="size-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={cancelEdit}
+                            className="size-8 text-muted-foreground"
+                            title="Cancel edit"
+                          >
+                            <X className="size-4" />
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => startEdit(v)}
+                            className="size-8 text-muted-foreground hover:text-foreground"
+                            title="Edit price or label"
+                          >
+                            <Edit2 className="size-3.5" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              if (window.confirm(`Delete variant "${v.label}"?`)) {
+                                deleteMutation.mutate(v.id)
+                              }
+                            }}
+                            disabled={deleteMutation.isPending}
+                            className="size-8 text-destructive/80 hover:text-destructive hover:bg-destructive/10"
+                            title="Delete variant"
+                          >
+                            <Trash2 className="size-3.5" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             )

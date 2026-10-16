@@ -28,9 +28,10 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
+import { Store } from 'lucide-react'
 import { ImageUpload } from '@/components/common/image-upload'
-import { ItemVariantsManager } from '@/features/food-items/components/item-variants-manager'
 import { foodItemSchema, slugify, type FoodItemInput } from '@/features/food-items/schemas/food-item-schema'
+import { generateProductCode } from '@/features/food-items/services/food-item-variants-service'
 import { useCreateFoodItem, useUpdateFoodItem } from '@/features/food-items/hooks/use-food-items'
 import { useCategories } from '@/features/menu/hooks/use-categories'
 import type { FoodItemWithCategory } from '@/features/food-items/services/food-items-service'
@@ -53,6 +54,7 @@ const DEFAULT_VALUES: FoodItemInput = {
   is_jain_available: false,
   track_stock: false,
   stock_quantity: 0,
+  product_code: '',
 }
 
 export function FoodItemFormSheet({
@@ -97,6 +99,7 @@ export function FoodItemFormSheet({
               is_jain_available: (item as any).is_jain_available ?? false,
               track_stock: item.track_stock,
               stock_quantity: item.stock_quantity,
+              product_code: (item as any).product_code ?? '',
             }
           : DEFAULT_VALUES,
       )
@@ -106,8 +109,15 @@ export function FoodItemFormSheet({
   const trackStock = form.watch('track_stock')
 
   const onSubmit = (values: FoodItemInput) => {
+    const selectedCategory = categories?.find((c) => c.id === values.category_id)
+    const effectiveProductCode = (
+      values.product_code?.trim() ||
+      generateProductCode(selectedCategory?.category_type || selectedCategory?.name, values.name)
+    ).toUpperCase()
+
     const payload = {
       ...values,
+      product_code: effectiveProductCode,
       description: values.description || null,
       kind: item?.kind ?? ('single' as const),
       display_order: item?.display_order ?? 0,
@@ -158,7 +168,13 @@ export function FoodItemFormSheet({
                         {...field}
                         onChange={(e) => {
                           field.onChange(e)
-                          if (!isEditing) form.setValue('slug', slugify(e.target.value))
+                          if (!isEditing) {
+                            form.setValue('slug', slugify(e.target.value))
+                            const cat = categories?.find((c) => c.id === form.getValues('category_id'))
+                            if (!form.getValues('product_code')) {
+                              form.setValue('product_code', generateProductCode(cat?.category_type || cat?.name, e.target.value))
+                            }
+                          }
                         }}
                       />
                     </FormControl>
@@ -209,7 +225,14 @@ export function FoodItemFormSheet({
                     <FormLabel>Category</FormLabel>
                     <Select
                       value={field.value ?? 'none'}
-                      onValueChange={(v) => field.onChange(v === 'none' ? null : v)}
+                      onValueChange={(v) => {
+                        const val = v === 'none' ? null : v
+                        field.onChange(val)
+                        if (!isEditing && !form.getValues('product_code')) {
+                          const cat = categories?.find((c) => c.id === val)
+                          form.setValue('product_code', generateProductCode(cat?.category_type || cat?.name, form.getValues('name')))
+                        }
+                      }}
                     >
                       <FormControl>
                         <SelectTrigger className="w-full">
@@ -230,6 +253,39 @@ export function FoodItemFormSheet({
                 )}
               />
             </div>
+
+            <FormField
+              control={form.control}
+              name="product_code"
+              render={({ field }) => (
+                <FormItem className="rounded-xl border p-3.5 bg-muted/10 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <FormLabel className="text-xs font-semibold flex items-center gap-1.5">
+                      <span>Product Code (Canonical ID)</span>
+                      {isEditing && (item?.total_sold ?? 0) > 0 && (
+                        <span className="text-[10px] text-amber-700 bg-amber-500/10 px-1.5 py-0.5 rounded font-medium">
+                          Active in historical orders ({item?.total_sold} sold)
+                        </span>
+                      )}
+                    </FormLabel>
+                    <span className="text-[10px] font-mono text-muted-foreground">SCREAMING_SNAKE_CASE</span>
+                  </div>
+                  <FormControl>
+                    <Input
+                      placeholder="e.g. SNACK_CHAKLI or THALI_VEG_REG"
+                      {...field}
+                      value={field.value ?? ''}
+                      onChange={(e) => field.onChange(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, ''))}
+                      className="font-mono text-xs tracking-wider uppercase font-semibold h-10 bg-background"
+                    />
+                  </FormControl>
+                  <p className="text-[11px] text-muted-foreground">
+                    Canonical identifier tying all variants together for historical orders & AI prediction.
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <FormField
               control={form.control}
@@ -434,12 +490,16 @@ export function FoodItemFormSheet({
               ) : null}
             </div>
 
-            {/* Packaging & Weight Variants (when editing an existing item) */}
-            {isEditing && item ? (
-              <div className="pt-2">
-                <ItemVariantsManager foodItemId={item.id} defaultPrice={item.price} />
+            {/* Retail Store & Packaging Variants Notice */}
+            <div className="rounded-xl border border-dashed p-3.5 bg-muted/20 flex items-start gap-3">
+              <Store className="size-5 text-primary shrink-0 mt-0.5" />
+              <div className="text-xs">
+                <p className="font-semibold text-foreground">Retail Packaging & Store Pricing</p>
+                <p className="text-muted-foreground mt-0.5">
+                  Pack sizes (250 gm, 500 gm, 1 kg), retail selling prices, and discounts for 24/7 direct customer orders are managed in the <span className="font-semibold text-foreground">Store Products</span> section.
+                </p>
               </div>
-            ) : null}
+            </div>
 
             {/* Dialog Footer with Cancel and Save buttons at bottom */}
             <DialogFooter className="pt-4 gap-2 border-t mt-4">

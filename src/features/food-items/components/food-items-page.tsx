@@ -27,14 +27,11 @@ import {
   useUpdateFoodItem,
 } from '@/features/food-items/hooks/use-food-items'
 import { useCategories } from '@/features/menu/hooks/use-categories'
-import { useAllFoodItemVariants } from '@/features/food-items/hooks/use-food-item-variants'
-import { ProductVariantsDialog } from '@/features/store-products/components/product-variants-dialog'
 import type { FoodItemWithCategory } from '@/features/food-items/services/food-items-service'
 import { CURRENCY_SYMBOL } from '@/constants'
 
 export function FoodItemsPage() {
   const { data: items, isPending } = useFoodItems()
-  const { data: allVariants = [] } = useAllFoodItemVariants()
   const { data: categories } = useCategories()
   const updateMutation = useUpdateFoodItem()
   const deleteMutation = useDeleteFoodItem()
@@ -44,17 +41,6 @@ export function FoodItemsPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<FoodItemWithCategory | null>(null)
   const [deletingItem, setDeletingItem] = useState<FoodItemWithCategory | null>(null)
-  const [variantsItem, setVariantsItem] = useState<FoodItemWithCategory | null>(null)
-
-  const variantsByFoodItemId = useMemo(() => {
-    const map = new Map<string, typeof allVariants>()
-    for (const v of allVariants) {
-      const list = map.get(v.food_item_id) || []
-      list.push(v)
-      map.set(v.food_item_id, list)
-    }
-    return map
-  }, [allVariants])
 
   const filtered = useMemo(() => {
     if (!items) return []
@@ -85,24 +71,18 @@ export function FoodItemsPage() {
               </AvatarFallback>
             </Avatar>
             <div>
-              <p className="font-medium">{row.original.name}</p>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <p className="font-medium">{row.original.name}</p>
+                {row.original.product_code && (
+                  <span className="font-mono text-[10px] bg-muted/80 border px-1.5 py-0.2 rounded text-muted-foreground font-semibold">
+                    {row.original.product_code}
+                  </span>
+                )}
+              </div>
               <div className="flex items-center gap-1.5 flex-wrap">
                 <p className="text-muted-foreground text-xs">
                   {row.original.categories?.name ?? 'Uncategorized'}
                 </p>
-                {(() => {
-                  const vars = variantsByFoodItemId.get(row.original.id) || []
-                  if (vars.length === 0) return null
-                  const activeCount = vars.filter((v) => v.is_active).length
-                  return (
-                    <Badge
-                      variant="outline"
-                      className="text-[10px] px-1.5 py-0 text-primary border-primary/30"
-                    >
-                      {vars.length} variant{vars.length > 1 ? 's' : ''} ({activeCount} active)
-                    </Badge>
-                  )
-                })()}
               </div>
             </div>
           </div>
@@ -185,9 +165,6 @@ export function FoodItemsPage() {
                 }}
               >
                 Edit
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setVariantsItem(row.original)}>
-                Manage Variants
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() =>
@@ -272,12 +249,6 @@ export function FoodItemsPage() {
       />
 
       <FoodItemFormSheet open={formOpen} onOpenChange={setFormOpen} item={editingItem} />
-
-      <ProductVariantsDialog
-        open={Boolean(variantsItem)}
-        onOpenChange={(open) => !open && setVariantsItem(null)}
-        product={variantsItem}
-      />
 
       <ConfirmDialog
         open={Boolean(deletingItem)}

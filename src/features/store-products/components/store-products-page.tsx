@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import {
   Plus,
   Search,
@@ -26,16 +26,7 @@ import { useAllFoodItemVariants } from '@/features/food-items/hooks/use-food-ite
 import { StoreProductDialog } from './store-product-dialog'
 import { ProductVariantsDialog } from './product-variants-dialog'
 import { CURRENCY_SYMBOL } from '@/constants'
-import type { StoreProduct } from '../services/store-products-service'
-
-const CATEGORY_TABS = [
-  { id: 'all', label: 'All Products' },
-  { id: 'farsan', label: 'Farsan' },
-  { id: 'sweets', label: 'Sweets' },
-  { id: 'snacks', label: 'Nasta & Snacks' },
-  { id: 'beverages', label: 'Beverages' },
-  { id: 'add-ons', label: 'Add-ons' },
-]
+import { isDiningPortionUnit, type StoreProduct } from '../services/store-products-service'
 
 export function StoreProductsPage() {
   const { data: products = [], isPending } = useStoreProducts()
@@ -65,24 +56,61 @@ export function StoreProductsPage() {
     return map
   }, [allVariants])
 
+  // Dynamic category tabs derived only from categories of products actually present in the store
+  const categoryTabs = useMemo(() => {
+    const tabs: { id: string; label: string; count: number }[] = [
+      { id: 'all', label: 'All Products', count: products.length },
+    ]
+
+    const catMap = new Map<string, { id: string; label: string; count: number }>()
+
+    for (const p of products) {
+      const catId = p.category_id || p.categories?.id
+      const catName = p.categories?.name
+      if (catId && catName) {
+        const existing = catMap.get(catId)
+        if (existing) {
+          existing.count += 1
+        } else {
+          catMap.set(catId, { id: catId, label: catName, count: 1 })
+        }
+      } else {
+        const existing = catMap.get('uncategorized')
+        if (existing) {
+          existing.count += 1
+        } else {
+          catMap.set('uncategorized', { id: 'uncategorized', label: 'Uncategorized', count: 1 })
+        }
+      }
+    }
+
+    return [...tabs, ...Array.from(catMap.values())]
+  }, [products])
+
+  // Reset tab selection if the selected tab no longer exists in categoryTabs
+  useEffect(() => {
+    if (selectedCategoryTab !== 'all') {
+      const exists = categoryTabs.some((t) => t.id === selectedCategoryTab)
+      if (!exists) {
+        setSelectedCategoryTab('all')
+      }
+    }
+  }, [categoryTabs, selectedCategoryTab])
+
   // Filtered products
   const filteredProducts = useMemo(() => {
     return products.filter((item) => {
       // Category tab match
-      const slug = (item.categories?.slug || '').toLowerCase()
-      const type = (item.categories?.category_type || '').toLowerCase()
-
       let matchesCat = true
-      if (selectedCategoryTab === 'farsan') {
-        matchesCat = slug.includes('farsan')
-      } else if (selectedCategoryTab === 'sweets') {
-        matchesCat = slug.includes('sweet') || type === 'sweet'
-      } else if (selectedCategoryTab === 'snacks') {
-        matchesCat = slug.includes('snack') || slug.includes('nasta') || type === 'snack'
-      } else if (selectedCategoryTab === 'beverages') {
-        matchesCat = slug.includes('beverage') || type === 'beverage'
-      } else if (selectedCategoryTab === 'add-ons') {
-        matchesCat = slug.includes('add-on')
+      if (selectedCategoryTab !== 'all') {
+        if (selectedCategoryTab === 'uncategorized') {
+          matchesCat = !item.category_id && !item.categories?.id
+        } else {
+          matchesCat =
+            item.category_id === selectedCategoryTab ||
+            item.categories?.id === selectedCategoryTab ||
+            (item.categories?.slug || '').toLowerCase() === selectedCategoryTab.toLowerCase()
+        }
       }
 
       // Status match
@@ -107,14 +135,9 @@ export function StoreProductsPage() {
     const total = products.length
     const enabled = products.filter((p) => p.is_available).length
     const disabled = total - enabled
-    const farsanCount = products.filter((p) =>
-      (p.categories?.slug || '').toLowerCase().includes('farsan'),
-    ).length
-    const sweetsCount = products.filter((p) =>
-      (p.categories?.slug || '').toLowerCase().includes('sweet'),
-    ).length
-    return { total, enabled, disabled, farsanCount, sweetsCount }
-  }, [products])
+    const activeCategoriesCount = categoryTabs.length - 1
+    return { total, enabled, disabled, activeCategoriesCount }
+  }, [products, categoryTabs])
 
   return (
     <div className="space-y-6 pb-12">
@@ -173,9 +196,9 @@ export function StoreProductsPage() {
           </p>
         </div>
         <div className="rounded-xl border bg-amber-50/40 border-amber-200/60 p-3.5 shadow-sm">
-          <p className="text-xs font-medium text-amber-900">Farsan & Sweets</p>
+          <p className="text-xs font-medium text-amber-900">Active Categories</p>
           <p className="text-2xl font-bold font-display text-amber-950 mt-0.5">
-            {stats.farsanCount + stats.sweetsCount}
+            {stats.activeCategoriesCount}
           </p>
         </div>
       </div>
@@ -184,19 +207,19 @@ export function StoreProductsPage() {
       <div className="space-y-3">
         {/* Category Pills */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 scrollbar-none">
-          {CATEGORY_TABS.map((tab) => {
+          {categoryTabs.map((tab) => {
             const isActive = selectedCategoryTab === tab.id
             return (
               <button
                 key={tab.id}
                 onClick={() => setSelectedCategoryTab(tab.id)}
-                className={`whitespace-nowrap rounded-full px-4 py-2 text-xs font-semibold transition-all shrink-0 min-h-[38px] ${
+                className={`whitespace-nowrap rounded-full px-4 py-2 text-xs font-semibold transition-all shrink-0 min-h-[38px] cursor-pointer ${
                   isActive
                     ? 'bg-primary text-primary-foreground shadow-sm'
                     : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground'
                 }`}
               >
-                {tab.label}
+                {tab.label} ({tab.count})
               </button>
             )
           })}
@@ -280,8 +303,8 @@ export function StoreProductsPage() {
             {filteredProducts.map((item) => {
               const isEnabled = item.is_available
               const soldOut =
-                item.track_stock &&
-                item.stock_quantity !== null &&
+                Boolean(item.track_stock) &&
+                item.stock_quantity != null &&
                 item.stock_quantity <= 0
 
               return (
@@ -299,11 +322,23 @@ export function StoreProductsPage() {
                       <Badge variant="secondary" className="text-[11px] font-semibold px-2 py-0.5">
                         {item.categories?.name || 'General'}
                       </Badge>
-                      {item.unit_label && (
+                      {item.unit_label && !isDiningPortionUnit(item.unit_label) && (
                         <Badge variant="outline" className="text-[11px] font-normal text-muted-foreground">
                           {item.unit_label}
                         </Badge>
                       )}
+                      {(() => {
+                        const itemVariants = variantsByFoodItemId.get(item.food_item_id || item.id) || []
+                        const activeVars = itemVariants.filter((v) => v.is_active)
+                        if (activeVars.length > 0 && (!item.unit_label || isDiningPortionUnit(item.unit_label))) {
+                          return (
+                            <Badge variant="outline" className="text-[11px] font-medium text-emerald-800 bg-emerald-50 border-emerald-200">
+                              {activeVars.length} Sizes
+                            </Badge>
+                          )
+                        }
+                        return null
+                      })()}
                       {soldOut && (
                         <Badge variant="destructive" className="text-[10px] py-0">
                           Sold Out
@@ -369,27 +404,51 @@ export function StoreProductsPage() {
                       )}
 
                       {/* Pricing */}
-                      <div className="flex items-baseline gap-2 mt-2">
-                        <span className="text-lg font-bold text-foreground tabular-nums">
-                          {CURRENCY_SYMBOL}
-                          {item.price}
-                        </span>
-                        {item.compare_price && item.compare_price > item.price && (
-                          <span className="text-xs text-muted-foreground line-through tabular-nums">
-                            {CURRENCY_SYMBOL}
-                            {item.compare_price}
-                          </span>
-                        )}
-                        {item.unit_label && (
-                          <span className="text-xs text-muted-foreground">
-                            / {item.unit_label}
-                          </span>
-                        )}
-                      </div>
+                      {(() => {
+                        const itemVariants = variantsByFoodItemId.get(item.food_item_id || item.id) || []
+                        const activeVars = itemVariants.filter((v) => v.is_active)
+                        const startingPrice =
+                          item.price && item.price > 0
+                            ? item.price
+                            : activeVars.length > 0
+                              ? activeVars[0].price
+                              : item.price ?? 0
+                        const comparePrice =
+                          item.compare_price ??
+                          (activeVars.length > 0 ? (activeVars[0].compare_price ?? null) : null)
+                        const cleanUnit =
+                          item.unit_label && !isDiningPortionUnit(item.unit_label) ? item.unit_label : null
+
+                        return (
+                          <div className="flex items-baseline gap-2 mt-2">
+                            <span className="text-lg font-bold text-foreground tabular-nums">
+                              {activeVars.length > 1 && (!item.price || item.price === 0) ? 'From ' : ''}
+                              {CURRENCY_SYMBOL}
+                              {startingPrice}
+                            </span>
+                            {comparePrice && comparePrice > startingPrice && (
+                              <>
+                                <span className="text-xs text-muted-foreground line-through tabular-nums">
+                                  {CURRENCY_SYMBOL}
+                                  {comparePrice}
+                                </span>
+                                <Badge className="text-[10px] px-1.5 py-0 bg-emerald-100 text-emerald-800 border border-emerald-300 font-semibold">
+                                  {Math.round(((comparePrice - startingPrice) / comparePrice) * 100)}% OFF
+                                </Badge>
+                              </>
+                            )}
+                            {cleanUnit && (
+                              <span className="text-xs text-muted-foreground">
+                                / {cleanUnit}
+                              </span>
+                            )}
+                          </div>
+                        )
+                      })()}
 
                       {/* Product Variants Preview (Weight / Pack size options) */}
                       {(() => {
-                        const itemVariants = variantsByFoodItemId.get(item.id) || []
+                        const itemVariants = variantsByFoodItemId.get(item.food_item_id || item.id) || []
                         if (itemVariants.length === 0) return null
                         const activeVars = itemVariants.filter((v) => v.is_active)
 
@@ -446,7 +505,7 @@ export function StoreProductsPage() {
                         <Scale className="size-3.5 text-primary" />
                         Variants
                         {(() => {
-                          const vCount = (variantsByFoodItemId.get(item.id) || []).length
+                          const vCount = (variantsByFoodItemId.get(item.food_item_id || item.id) || []).length
                           return vCount > 0 ? (
                             <Badge
                               variant="secondary"
@@ -501,6 +560,7 @@ export function StoreProductsPage() {
         open={Boolean(variantsProduct)}
         onOpenChange={(open) => !open && setVariantsProduct(null)}
         product={variantsProduct}
+        toggleOnly={false}
       />
 
       <ConfirmDialog

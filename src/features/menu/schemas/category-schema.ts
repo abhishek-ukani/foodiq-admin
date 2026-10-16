@@ -16,7 +16,7 @@ export const categorySchema = z.object({
   image_url: z.string().nullable().optional(),
   display_order: z.number().int().min(0),
   is_active: z.boolean(),
-  category_type: z.enum(['thali', 'sabji', 'bread', 'sweet', 'snack', 'beverage', 'rice', 'general']),
+  category_type: z.enum(['thali', 'sabji', 'bread', 'sweet', 'snack', 'beverage', 'rice', 'general']).default('general'),
 })
 export type CategoryInput = z.infer<typeof categorySchema>
 
