@@ -7,10 +7,13 @@ export const ADMIN_ROUTES = {
   dashboard: '/',
   orders: '/orders',
   orderDetail: (id: string) => `/orders/${id}`,
+  kitchenCalculator: '/kitchen-calculator',
+  expenses: '/expenses',
   dailyMenu: '/menu/daily',
+  thalis: '/menu/thalis',
+  storeProducts: '/menu/store-products',
   foodItems: '/menu/items',
   foodItemDetail: (id: string) => `/menu/items/${id}`,
-  thalis: '/menu/thalis',
   categories: '/menu/categories',
   pricing: '/pricing',
   customers: '/customers',
@@ -80,7 +83,6 @@ export const ORDER_STATUS_META: Record<
 export const ORDER_TIMELINE: OrderStatus[] = [
   'pending',
   'accepted',
-  'preparing',
   'ready',
   'out_for_delivery',
   'delivered',
@@ -92,7 +94,7 @@ export const ORDER_TIMELINE: OrderStatus[] = [
  */
 export const ALLOWED_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   pending: ['accepted', 'rejected', 'cancelled'],
-  accepted: ['preparing', 'cancelled'],
+  accepted: ['ready', 'cancelled'],
   preparing: ['ready', 'cancelled'],
   ready: ['out_for_delivery', 'cancelled'],
   out_for_delivery: ['delivered', 'cancelled'],
@@ -127,6 +129,7 @@ export const ADMIN_QUERY_KEYS = {
   upiQr: ['admin', 'upi-qr'] as const,
   banners: ['admin', 'banners'] as const,
   thaliOptionGroups: (foodItemId?: string) => ['admin', 'thali-option-groups', foodItemId] as const,
+  storeProducts: ['admin', 'store-products'] as const,
 } as const
 
 export const CURRENCY_SYMBOL = '₹'

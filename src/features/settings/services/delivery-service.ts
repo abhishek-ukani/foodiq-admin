@@ -13,10 +13,9 @@ export async function fetchDeliveryAreas(): Promise<Tables<'delivery_areas'>[]> 
 }
 
 export async function createDeliveryArea(
-  input: Omit<TablesInsert<'delivery_areas'>, 'branch_id'>,
+  input: TablesInsert<'delivery_areas'>,
 ): Promise<void> {
-  const branch_id = await getDefaultBranchId()
-  const { error } = await supabase.from('delivery_areas').insert({ ...input, branch_id })
+  const { error } = await supabase.from('delivery_areas').insert(input)
   if (error) throw error
 }
 
@@ -32,6 +31,7 @@ export async function deleteDeliveryArea(id: string): Promise<void> {
   const { error } = await supabase.from('delivery_areas').delete().eq('id', id)
   if (error) throw error
 }
+
 
 // ---------------------------------------------------------------------------
 // Delivery Zones (Pre-classified localities: FREE, PAID, BLOCKED)

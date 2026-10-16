@@ -71,10 +71,19 @@ export function FoodItemsPage() {
               </AvatarFallback>
             </Avatar>
             <div>
-              <p className="font-medium">{row.original.name}</p>
-              <p className="text-muted-foreground text-xs">
-                {row.original.categories?.name ?? 'Uncategorized'}
-              </p>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <p className="font-medium">{row.original.name}</p>
+                {row.original.product_code && (
+                  <span className="font-mono text-[10px] bg-muted/80 border px-1.5 py-0.2 rounded text-muted-foreground font-semibold">
+                    {row.original.product_code}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <p className="text-muted-foreground text-xs">
+                  {row.original.categories?.name ?? 'Uncategorized'}
+                </p>
+              </div>
             </div>
           </div>
         ),
@@ -84,13 +93,13 @@ export function FoodItemsPage() {
         header: 'Price',
         cell: ({ row }) => (
           <div>
-            {row.original.offer_price ? (
+            {row.original.compare_price ? (
               <>
-                <span className="font-medium">
+                <span className="text-muted-foreground text-xs line-through">
                   {CURRENCY_SYMBOL}
-                  {row.original.offer_price}
+                  {row.original.compare_price}
                 </span>
-                <span className="text-muted-foreground ml-1.5 text-xs line-through">
+                <span className="font-medium ml-1.5">
                   {CURRENCY_SYMBOL}
                   {row.original.price}
                 </span>
@@ -119,9 +128,9 @@ export function FoodItemsPage() {
           }
 
           return (
-            <div className="flex flex-wrap gap-1">
+            <div className="flex items-center gap-1 flex-wrap">
               {preps.map((p) => (
-                <Badge key={p} variant="outline" className="text-xs bg-amber-50 text-amber-900 border-amber-200">
+                <Badge key={p} variant="outline" className="text-[10px] bg-amber-50 text-amber-800 border-amber-200">
                   {p}
                 </Badge>
               ))}

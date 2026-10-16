@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { supabase } from '@/lib/supabase'
-import { ADMIN_QUERY_KEYS } from '@/constants'
+import { broadcastCatalogUpdate } from '@/lib/realtime-sync'
 import type { Tables, TablesInsert, TablesUpdate } from '@/types/database.types'
 
 export type ThaliOptionGroupWithItems = Tables<'thali_option_groups'> & {
@@ -60,7 +60,10 @@ export async function updateThaliOptionGroup(
 }
 
 export async function deleteThaliOptionGroup(id: string): Promise<void> {
-  const { error } = await supabase.from('thali_option_groups').delete().eq('id', id)
+  const { error } = await supabase
+    .from('thali_option_groups')
+    .delete()
+    .eq('id', id)
   if (error) throw error
 }
 
@@ -91,7 +94,10 @@ export async function updateThaliOptionItem(
 }
 
 export async function deleteThaliOptionItem(id: string): Promise<void> {
-  const { error } = await supabase.from('thali_option_items').delete().eq('id', id)
+  const { error } = await supabase
+    .from('thali_option_items')
+    .delete()
+    .eq('id', id)
   if (error) throw error
 }
 
@@ -99,7 +105,9 @@ export async function deleteThaliOptionItem(id: string): Promise<void> {
 
 export function useThaliOptionGroups(foodItemId?: string) {
   return useQuery({
-    queryKey: ADMIN_QUERY_KEYS.thaliOptionGroups(foodItemId),
+    queryKey: foodItemId
+      ? ['admin', 'thali-option-groups', foodItemId]
+      : ['admin', 'thali-option-groups'],
     queryFn: () => fetchThaliOptionGroupsWithItems(foodItemId),
   })
 }
@@ -113,6 +121,7 @@ export function useCreateThaliOptionGroup() {
       if (variables.food_item_id) {
         queryClient.invalidateQueries({ queryKey: ['admin', 'thali-option-groups', variables.food_item_id] })
       }
+      broadcastCatalogUpdate('thali_option_group_created')
       toast.success('Option group created successfully')
     },
     onError: (err: Error) => toast.error(err.message),
@@ -126,6 +135,7 @@ export function useUpdateThaliOptionGroup() {
       updateThaliOptionGroup(id, input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'thali-option-groups'] })
+      broadcastCatalogUpdate('thali_option_group_updated')
       toast.success('Option group updated')
     },
     onError: (err: Error) => toast.error(err.message),
@@ -138,6 +148,7 @@ export function useDeleteThaliOptionGroup() {
     mutationFn: (id: string) => deleteThaliOptionGroup(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'thali-option-groups'] })
+      broadcastCatalogUpdate('thali_option_group_deleted')
       toast.success('Option group deleted')
     },
     onError: (err: Error) => toast.error(err.message),
@@ -150,6 +161,7 @@ export function useCreateThaliOptionItem() {
     mutationFn: (input: TablesInsert<'thali_option_items'>) => createThaliOptionItem(input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'thali-option-groups'] })
+      broadcastCatalogUpdate('thali_option_item_created')
       toast.success('Option item added')
     },
     onError: (err: Error) => toast.error(err.message),
@@ -163,6 +175,7 @@ export function useUpdateThaliOptionItem() {
       updateThaliOptionItem(id, input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'thali-option-groups'] })
+      broadcastCatalogUpdate('thali_option_item_updated')
       toast.success('Option item updated')
     },
     onError: (err: Error) => toast.error(err.message),
@@ -175,6 +188,7 @@ export function useDeleteThaliOptionItem() {
     mutationFn: (id: string) => deleteThaliOptionItem(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'thali-option-groups'] })
+      broadcastCatalogUpdate('thali_option_item_deleted')
       toast.success('Option item deleted')
     },
     onError: (err: Error) => toast.error(err.message),

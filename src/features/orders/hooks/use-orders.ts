@@ -6,6 +6,7 @@ import {
   fetchActiveDeliverySlots,
   fetchFoodItemsForOrder,
   fetchOrders,
+  updateOrderDeliveryCharge,
   updateOrderStatus,
   type CreateAdminOrderInput,
 } from '@/features/orders/services/orders-service'
@@ -25,6 +26,19 @@ export function useUpdateOrderStatus() {
       toast.success('Order updated')
     },
     onError: (error) => toast.error(error.message),
+  })
+}
+
+export function useUpdateOrderDeliveryCharge() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, deliveryCharge }: { id: string; deliveryCharge: number }) =>
+      updateOrderDeliveryCharge(id, deliveryCharge),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.orders() })
+      toast.success('Delivery charge and order total updated')
+    },
+    onError: (error: Error) => toast.error(error.message),
   })
 }
 

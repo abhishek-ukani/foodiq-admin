@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="400" height="300" fill="none">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FBF7EE"/>
+      <stop offset="50%" stop-color="#F4ECE0"/>
+      <stop offset="100%" stop-color="#EBE0CF"/>
+    </linearGradient>
+    <radialGradient id="plateShad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#2D1808" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#2D1808" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="rimGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#E5D9C4" stop-opacity="0.6"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="100%" height="100%" fill="url(#bgGrad)"/>
+
+  <!-- Subtle accent dots -->
+  <g opacity="0.15" fill="#8C5824">
+    <circle cx="40" cy="40" r="2"/>
+    <circle cx="360" cy="40" r="2"/>
+    <circle cx="40" cy="260" r="2"/>
+    <circle cx="360" cy="260" r="2"/>
+    <circle cx="200" cy="30" r="1.5"/>
+    <circle cx="200" cy="270" r="1.5"/>
+  </g>
+
+  <!-- Ground Shadow -->
+  <ellipse cx="200" cy="170" rx="95" ry="24" fill="url(#plateShad)"/>
+
+  <!-- Plate Outer Rim -->
+  <ellipse cx="200" cy="140" rx="85" ry="60" fill="url(#rimGrad)" stroke="#DFD3BE" stroke-width="1.5"/>
+  
+  <!-- Plate Inner Surface -->
+  <ellipse cx="200" cy="140" rx="66" ry="46" fill="#FDFBF7" stroke="#E8DECD" stroke-width="1"/>
+
+  <!-- Utensils / Cloche Graphic -->
+  <g transform="translate(176, 116)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <!-- Fork -->
+    <path d="M14 8v16M11 8v6a3 3 0 0 0 6 0V8M14 24v18" stroke="#185834"/>
+    <!-- Spoon -->
+    <path d="M34 8c-3 0-5 3-5 7 0 3 2 6 5 6s5-3 5-6c0-4-2-7-5-7zM34 21v21" stroke="#D85820"/>
+  </g>
+
+  <!-- Sparkle Accent -->
+  <path d="M228 108l1.5 3 3 1.5-3 1.5-1.5 3-1.5-3-3-1.5 3-1.5z" fill="#D85820" opacity="0.8"/>
+
+  <!-- Label -->
+  <text x="200" y="222" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600" fill="#786650" letter-spacing="0.04em">
+    Fresh Preparation
+  </text>
+  <text x="200" y="238" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="10" font-weight="400" fill="#A89882">
+    Photo will be updated daily
+  </text>
+</svg>

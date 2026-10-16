@@ -28,8 +28,18 @@ const ThaliCustomizationPage = lazy(() =>
     default: m.ThaliCustomizationPage,
   })),
 )
+const StoreProductsPage = lazy(() =>
+  import('@/features/store-products/components/store-products-page').then((m) => ({
+    default: m.StoreProductsPage,
+  })),
+)
 const OrdersPage = lazy(() =>
   import('@/features/orders/components/orders-page').then((m) => ({ default: m.OrdersPage })),
+)
+const KitchenCalculatorPage = lazy(() =>
+  import('@/features/kitchen-calculator/components/kitchen-calculator-page').then((m) => ({
+    default: m.KitchenCalculatorPage,
+  })),
 )
 const SettingsPage = lazy(() =>
   import('@/features/settings/components/settings-page').then((m) => ({ default: m.SettingsPage })),
@@ -47,6 +57,9 @@ const ContentPage = lazy(() =>
 )
 const ReportsPage = lazy(() =>
   import('@/features/reports/components/reports-page').then((m) => ({ default: m.ReportsPage })),
+)
+const ExpensesPage = lazy(() =>
+  import('@/features/expenses/components/expenses-page').then((m) => ({ default: m.ExpensesPage })),
 )
 const NotificationsPage = lazy(() =>
   import('@/features/notifications/components/notifications-page').then((m) => ({
@@ -84,7 +97,10 @@ export const router = createBrowserRouter([
       { path: ADMIN_ROUTES.foodItems, element: withSuspense(<FoodItemsPage />) },
       { path: ADMIN_ROUTES.dailyMenu, element: withSuspense(<DailyMenuPage />) },
       { path: ADMIN_ROUTES.thalis, element: withSuspense(<ThaliCustomizationPage />) },
+      { path: ADMIN_ROUTES.storeProducts, element: withSuspense(<StoreProductsPage />) },
       { path: ADMIN_ROUTES.orders, element: withSuspense(<OrdersPage />) },
+      { path: ADMIN_ROUTES.kitchenCalculator, element: withSuspense(<KitchenCalculatorPage />) },
+      { path: ADMIN_ROUTES.expenses, element: withSuspense(<ExpensesPage />) },
       { path: ADMIN_ROUTES.settings, element: withSuspense(<SettingsPage />) },
       { path: ADMIN_ROUTES.customers, element: withSuspense(<CustomersPage />) },
       { path: ADMIN_ROUTES.customerDetail(':id'), element: withSuspense(<CustomerDetailPage />) },
