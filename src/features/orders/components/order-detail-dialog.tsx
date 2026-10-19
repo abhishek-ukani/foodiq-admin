@@ -6,7 +6,6 @@ import {
   MapPin,
   Phone,
   Printer,
-  Sparkles,
   UtensilsCrossed,
   Wheat,
   Soup,
@@ -22,7 +21,6 @@ import {
   DialogContent,
   DialogDescription,
   DialogFooter,
-  DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -39,13 +37,6 @@ import { CURRENCY_SYMBOL } from '@/constants'
 import type { OrderStatus } from '@/types/database.types'
 import toast from 'react-hot-toast'
 
-const NEXT_STATUS: Partial<Record<OrderStatus, { status: OrderStatus; label: string }>> = {
-  pending: { status: 'accepted', label: 'Accept Order' },
-  accepted: { status: 'ready', label: 'Mark Ready for Pickup' },
-  preparing: { status: 'ready', label: 'Mark Ready for Pickup' },
-  ready: { status: 'out_for_delivery', label: 'Dispatch (Out for Delivery)' },
-  out_for_delivery: { status: 'delivered', label: 'Mark as Delivered' },
-}
 
 const CANCELLABLE: OrderStatus[] = ['pending', 'accepted', 'ready']
 
@@ -72,7 +63,6 @@ export function OrderDetailDialog({
 
   if (!order) return null
 
-  const next = NEXT_STATUS[order.status]
   const canCancel = CANCELLABLE.includes(order.status)
 
   const reset = () => {

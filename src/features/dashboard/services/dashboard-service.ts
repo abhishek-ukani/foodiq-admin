@@ -1,8 +1,6 @@
 import dayjs from 'dayjs'
 import { supabase } from '@/lib/supabase'
-import type { Database, Tables } from '@/types/database.types'
-
-type Functions = Database['public']['Functions']
+import type { Tables } from '@/types/database.types'
 
 export interface DashboardSummary {
   todays_orders: number

@@ -1,25 +1,18 @@
 import { useMemo, useState } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
 import {
-  AlertCircle,
-  ArrowRight,
   Bell,
   Calendar,
   CheckCircle2,
   ChefHat,
   Clock,
-  Filter,
   Kanban,
   MapPin,
   Plus,
   Printer,
   RefreshCw,
   Search,
-  SlidersHorizontal,
-  Soup,
   Table as TableIcon,
-  UtensilsCrossed,
-  Wheat,
   X,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
@@ -44,7 +37,7 @@ import {
   calculateKitchenProduction,
   parseOrderItemDetails,
 } from '@/features/orders/utils/order-parser'
-import { CURRENCY_SYMBOL, ORDER_STATUS_META } from '@/constants'
+import { CURRENCY_SYMBOL } from '@/constants'
 import type { OrderStatus, Tables } from '@/types/database.types'
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
@@ -112,27 +105,6 @@ export function OrdersPage() {
     return true
   }
 
-  // Count orders matching today vs other dates
-  const todayOrdersCount = useMemo(() => {
-    if (!orders) return 0
-    return orders.filter((o) => {
-      const orderDate = o.delivery_date
-        ? dayjs(o.delivery_date).format('YYYY-MM-DD')
-        : dayjs(o.placed_at).format('YYYY-MM-DD')
-      return orderDate === todayStr
-    }).length
-  }, [orders, todayStr])
-
-  // Pending and Out-of-Zone counts
-  const pendingCount = useMemo(() => {
-    if (!orders) return 0
-    return orders.filter((o) => o.status === 'pending').length
-  }, [orders])
-
-  const outOfZoneCount = useMemo(() => {
-    if (!orders) return 0
-    return orders.filter((o) => o.is_out_of_zone).length
-  }, [orders])
 
   // Count per status tab (within active date mode)
   const statusCounts = useMemo(() => {

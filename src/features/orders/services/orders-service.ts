@@ -287,6 +287,7 @@ export async function createAdminOrder(input: CreateAdminOrderInput): Promise<Ta
         pincode: input.pincode ?? '',
         label: input.addressLabel ?? 'home',
         is_default: false,
+        meal_type_tag: 'both',
       })
       .select()
       .single()
@@ -403,23 +404,7 @@ export async function createAdminOrder(input: CreateAdminOrderInput): Promise<Ta
     special_instructions: item.special_instructions ?? null,
   }))
 
-  let { error: itemsErr } = await supabase.from('order_items').insert(itemsToInsert)
-  if (
-    itemsErr &&
-    (itemsErr.message?.includes('product_code') ||
-      itemsErr.message?.includes('variant_code') ||
-      itemsErr.message?.includes('variant_sku'))
-  ) {
-    const fallbackItems = itemsToInsert.map((item) => {
-      const copy = { ...item }
-      delete (copy as any).product_code
-      delete (copy as any).variant_code
-      delete (copy as any).variant_sku
-      return copy
-    })
-    const fallbackRes = await supabase.from('order_items').insert(fallbackItems)
-    itemsErr = fallbackRes.error
-  }
+  const { error: itemsErr } = await supabase.from('order_items').insert(itemsToInsert)
   if (itemsErr) {
     throw new Error(`Order created but failed to save items: ${itemsErr.message}`)
   }
