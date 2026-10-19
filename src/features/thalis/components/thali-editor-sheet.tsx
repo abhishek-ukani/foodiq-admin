@@ -146,7 +146,7 @@ export function ThaliEditorSheet({
   }
 
   const form = useForm<FoodItemInput>({
-    resolver: zodResolver(foodItemSchema),
+    resolver: zodResolver(foodItemSchema) as any,
     defaultValues: DEFAULT_VALUES,
   })
 

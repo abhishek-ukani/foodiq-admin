@@ -130,11 +130,7 @@ export function getExpenseSpenders(): ExpenseSpender[] {
     if (raw) {
       const parsed = JSON.parse(raw)
       if (Array.isArray(parsed)) {
-        // Discard any legacy mock items
-        const valid = parsed.filter(
-          (s) => !['usr-abhishek', 'usr-rajesh', 'usr-sanjay'].includes(s.id),
-        )
-        return valid
+        return parsed
       }
     }
     return []
@@ -253,17 +249,7 @@ export function getExpenses(): ExpenseRecord[] {
     if (!raw) return []
     const parsed = JSON.parse(raw)
     if (Array.isArray(parsed)) {
-      // Purge any fake/seed items from previous sessions (e.g. exp-1, exp-2, etc.)
-      const userOnly = parsed.filter(
-        (item: ExpenseRecord) =>
-          !['exp-1', 'exp-2', 'exp-3', 'exp-4', 'exp-5', 'exp-6', 'exp-7', 'exp-8'].includes(
-            item.id,
-          ),
-      )
-      if (userOnly.length !== parsed.length) {
-        localStorage.setItem(EXPENSES_STORAGE_KEY, JSON.stringify(userOnly))
-      }
-      return userOnly
+      return parsed
     }
     return []
   } catch (err) {
@@ -463,15 +449,25 @@ export function exportExpensesCsv(
   categories: ExpenseCategory[],
 ) {
   const catLookup = new Map(categories.map((c) => [c.id, c.name]))
-  const rows = filteredExpenses.map((exp) => ({
-    Date: exp.date,
-    Title: exp.title,
-    Category: catLookup.get(exp.categoryId) || 'Other',
-    'Spent By (Super User)': exp.spentByName || '-',
-    'Amount (INR)': exp.amount,
-    'Payment Method': exp.paymentMethod.toUpperCase(),
-    Vendor: exp.vendor || '-',
-    Notes: exp.notes || '-',
-  }))
-  downloadCsv(rows, `kitchen-expenses-${dayjs().format('YYYY-MM-DD')}.csv`)
+  const headers = [
+    'Date',
+    'Title',
+    'Category',
+    'Spent By (Super User)',
+    'Amount (INR)',
+    'Payment Method',
+    'Vendor',
+    'Notes',
+  ]
+  const rows = filteredExpenses.map((exp) => [
+    exp.date,
+    exp.title,
+    catLookup.get(exp.categoryId) || 'Other',
+    exp.spentByName || '-',
+    exp.amount,
+    exp.paymentMethod.toUpperCase(),
+    exp.vendor || '-',
+    exp.notes || '-',
+  ])
+  downloadCsv(`kitchen-expenses-${dayjs().format('YYYY-MM-DD')}.csv`, headers, rows)
 }

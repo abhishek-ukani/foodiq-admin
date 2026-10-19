@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Printer, X } from 'lucide-react'
+import { Printer } from 'lucide-react'
 import {
   Dialog,
   DialogContent,

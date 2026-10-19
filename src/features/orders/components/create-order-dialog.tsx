@@ -38,12 +38,12 @@ import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useCustomerAddresses, useCustomers } from '@/features/customers/hooks/use-customers'
-import { useActiveDeliverySlots, useCreateAdminOrder, useFoodItemsForOrder } from '@/features/orders/hooks/use-orders'
+import { useCreateAdminOrder, useFoodItemsForOrder } from '@/features/orders/hooks/use-orders'
 import type { FoodItemForOrder, ResolvedAdminOptionGroup } from '@/features/orders/services/orders-service'
 import { fetchThaliOptionGroupsForAdminOrder } from '@/features/orders/services/orders-service'
 import { supabase } from '@/lib/supabase'
 import { CURRENCY_SYMBOL } from '@/constants'
-import type { OrderStatus } from '@/types/database.types'
+import type { OrderStatus, Tables } from '@/types/database.types'
 import toast from 'react-hot-toast'
 
 export type SelectedCartItem = {
@@ -87,7 +87,6 @@ export function CreateOrderDialog({
 }: CreateOrderDialogProps) {
   const { data: customers, refetch: refetchCustomers } = useCustomers()
   const { data: foodItems } = useFoodItemsForOrder()
-  const { data: deliverySlots } = useActiveDeliverySlots()
   const createOrder = useCreateAdminOrder()
 
   // Form State

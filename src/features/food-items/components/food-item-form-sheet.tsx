@@ -73,7 +73,7 @@ export function FoodItemFormSheet({
   const isSubmitting = createMutation.isPending || updateMutation.isPending
 
   const form = useForm<FoodItemInput>({
-    resolver: zodResolver(foodItemSchema),
+    resolver: zodResolver(foodItemSchema) as any,
     defaultValues: DEFAULT_VALUES,
   })
 

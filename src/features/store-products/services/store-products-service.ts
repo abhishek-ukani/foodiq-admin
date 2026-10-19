@@ -7,6 +7,7 @@ export type StoreProduct = {
   category_id: string | null
   name: string
   name_gujarati?: string | null
+  product_code?: string | null
   description?: string | null
   image_url?: string | null
   price: number
@@ -132,7 +133,7 @@ export async function fetchStoreProducts(): Promise<StoreProduct[]> {
   const [catalog, { data: categories }, { data: foodItems }, { data: variants }] = await Promise.all([
     getStoreProductsCatalog(),
     supabase.from('categories').select('*'),
-    supabase.from('food_items').select('id, name, name_gujarati, description, image_url, unit_label'),
+    supabase.from('food_items').select('id, name, name_gujarati, description, image_url, unit_label, product_code'),
     supabase.from('food_item_variants').select('*').eq('is_active', true).order('display_order', { ascending: true }),
   ])
 
@@ -174,6 +175,7 @@ export async function fetchStoreProducts(): Promise<StoreProduct[]> {
       ...item,
       name: item.name || freshDish?.name || 'Unnamed Product',
       name_gujarati: item.name_gujarati ?? freshDish?.name_gujarati ?? null,
+      product_code: item.product_code ?? (freshDish as any)?.product_code ?? null,
       description: item.description ?? freshDish?.description ?? null,
       image_url: item.image_url ?? freshDish?.image_url ?? null,
       price: effectivePrice,

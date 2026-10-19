@@ -52,7 +52,7 @@ export function CategoryFormDialog({
   const isSubmitting = createMutation.isPending || updateMutation.isPending
 
   const form = useForm<CategoryInput>({
-    resolver: zodResolver(categorySchema),
+    resolver: zodResolver(categorySchema) as any,
     defaultValues: DEFAULT_VALUES,
   })
 

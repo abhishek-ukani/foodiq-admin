@@ -1,7 +1,7 @@
 import type { Tables } from '@/types/database.types'
 import type { AdminOrder } from '@/features/orders/services/orders-service'
 
-export type ItemCategoryKind = 'meal' | 'farsan' | 'sweet' | 'sabji' | 'bread' | 'beverage' | 'alacarte'
+export type ItemCategoryKind = 'meal' | 'farsan' | 'sweet' | 'sabji' | 'bread' | 'beverage' | 'accompaniment' | 'alacarte'
 
 export interface ParsedItemComponent {
   name: string

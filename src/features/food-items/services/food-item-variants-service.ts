@@ -98,18 +98,18 @@ export type CreateFoodItemVariantInput = Omit<
 export async function createFoodItemVariant(
   input: CreateFoodItemVariantInput,
 ): Promise<FoodItemVariant> {
+  const { product_code: _product_code, ...variantData } = input
   const autoVariantCode = input.variant_code?.trim() || (
     input.product_code
       ? generateVariantCode(input.product_code, input.quantity, input.unit_type)
       : null
   )
 
-  const payload = {
-    ...input,
+  const payload: TablesInsert<'food_item_variants'> = {
+    ...variantData,
     sku: input.sku?.trim() || generateVariantSku(input.food_item_id, input.label, input.unit_type),
     variant_code: autoVariantCode,
   }
-  delete (payload as any).product_code
 
   // If set as default, remove default flag from sibling variants first
   if (input.is_default) {
@@ -129,32 +129,7 @@ export async function createFoodItemVariant(
     .select()
     .single()
 
-  if (error) {
-    if (
-      error.message?.includes('variant_code') ||
-      error.message?.includes('is_default') ||
-      error.message?.includes('nutrition_per_unit') ||
-      error.message?.includes('allergens') ||
-      (error as any).details?.includes('variant_code')
-    ) {
-      const fallbackPayload = { ...payload }
-      delete (fallbackPayload as any).variant_code
-      delete (fallbackPayload as any).is_default
-      delete (fallbackPayload as any).nutrition_per_unit
-      delete (fallbackPayload as any).allergens
-      const fallback = await supabase
-        .from('food_item_variants')
-        .insert(fallbackPayload)
-        .select()
-        .single()
-      if (fallback.error) throw fallback.error
-      console.warn(
-        'Created variant without variant_code/is_default. Run migration 20261002_01_product_variants_and_order_tracking.sql in Supabase.',
-      )
-      return fallback.data
-    }
-    throw error
-  }
+  if (error) throw error
   return data
 }
 
@@ -175,33 +150,7 @@ export async function updateFoodItemVariant(
     .select()
     .single()
 
-  if (error) {
-    if (
-      error.message?.includes('variant_code') ||
-      error.message?.includes('is_default') ||
-      error.message?.includes('nutrition_per_unit') ||
-      error.message?.includes('allergens') ||
-      (error as any).details?.includes('variant_code')
-    ) {
-      const fallbackInput = { ...input, updated_at: new Date().toISOString() }
-      delete (fallbackInput as any).variant_code
-      delete (fallbackInput as any).is_default
-      delete (fallbackInput as any).nutrition_per_unit
-      delete (fallbackInput as any).allergens
-      const fallback = await supabase
-        .from('food_item_variants')
-        .update(fallbackInput)
-        .eq('id', id)
-        .select()
-        .single()
-      if (fallback.error) throw fallback.error
-      console.warn(
-        'Updated variant without variant_code/is_default. Run migration 20261002_01_product_variants_and_order_tracking.sql in Supabase.',
-      )
-      return fallback.data
-    }
-    throw error
-  }
+  if (error) throw error
   return data
 }
 
