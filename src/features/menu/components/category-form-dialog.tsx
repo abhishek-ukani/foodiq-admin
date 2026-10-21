@@ -14,13 +14,6 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import {
   Form,
   FormControl,
   FormField,
@@ -59,7 +52,7 @@ export function CategoryFormDialog({
   const isSubmitting = createMutation.isPending || updateMutation.isPending
 
   const form = useForm<CategoryInput>({
-    resolver: zodResolver(categorySchema),
+    resolver: zodResolver(categorySchema) as any,
     defaultValues: DEFAULT_VALUES,
   })
 

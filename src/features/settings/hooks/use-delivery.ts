@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { ADMIN_QUERY_KEYS } from '@/constants'
+import type { TablesInsert, TablesUpdate } from '@/types/database.types'
 import {
   createDeliveryArea,
   createDeliveryFeeRule,
@@ -19,10 +20,9 @@ import {
   updateDeliverySlot,
   updateDeliveryZone,
 } from '@/features/settings/services/delivery-service'
-import type { TablesInsert, TablesUpdate } from '@/types/database.types'
 
 // ---------------------------------------------------------------------------
-// Delivery Areas (Legacy)
+// Delivery Areas
 // ---------------------------------------------------------------------------
 
 export function useDeliveryAreas() {
@@ -32,7 +32,7 @@ export function useDeliveryAreas() {
 export function useCreateDeliveryArea() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (input: Omit<TablesInsert<'delivery_areas'>, 'branch_id'>) => createDeliveryArea(input),
+    mutationFn: (input: TablesInsert<'delivery_areas'>) => createDeliveryArea(input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.deliveryAreas })
       toast.success('Delivery area added')
@@ -65,6 +65,7 @@ export function useDeleteDeliveryArea() {
     onError: (error) => toast.error(error.message),
   })
 }
+
 
 // ---------------------------------------------------------------------------
 // Delivery Zones (Pre-classified Localities: FREE, PAID, BLOCKED)

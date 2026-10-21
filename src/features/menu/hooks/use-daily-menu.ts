@@ -15,6 +15,7 @@ import {
   updateMenuCutoffTime,
   updateMenuItemInventory,
 } from '@/features/menu/services/daily-menu-service'
+import { broadcastCatalogUpdate } from '@/lib/realtime-sync'
 import type { MealType } from '@/types/database.types'
 
 function menuKey(date: string, meal: MealType) {
@@ -38,7 +39,10 @@ export function useMenuItems(dailyMenuId: string | undefined) {
 
 function useInvalidateMenuItems(dailyMenuId: string | undefined) {
   const queryClient = useQueryClient()
-  return () => queryClient.invalidateQueries({ queryKey: ['admin', 'daily-menu-items', dailyMenuId] })
+  return () => {
+    queryClient.invalidateQueries({ queryKey: ['admin', 'daily-menu-items', dailyMenuId] })
+    broadcastCatalogUpdate('daily_menu_items_updated')
+  }
 }
 
 export function useCopyPreviousMenu(dailyMenuId: string | undefined) {
@@ -61,6 +65,7 @@ export function useTogglePublish(date: string, meal: MealType) {
       setMenuPublished(id, is_published),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: menuKey(date, meal) })
+      broadcastCatalogUpdate('daily_menu_publish_toggled')
       toast.success(variables.is_published ? 'Menu published' : 'Menu unpublished')
     },
     onError: (error) => toast.error(error.message),
@@ -74,6 +79,7 @@ export function useUpdateMenuCutoff(date: string, meal: MealType) {
       updateMenuCutoffTime(id, cutoff_time),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: menuKey(date, meal) })
+      broadcastCatalogUpdate('daily_menu_cutoff_updated')
       toast.success('Order cutoff time updated')
     },
     onError: (error) => toast.error(error.message),

@@ -1,12 +1,17 @@
 import { supabase } from '@/lib/supabase'
 import { getDefaultBranchId } from '@/lib/default-branch'
 import { incrementMenuItemSoldQty, decrementOrderItemsSoldQty } from '@/features/menu/services/daily-menu-service'
-import type { ItemKind, OrderStatus, PaymentMethod, PaymentStatus, Tables, TablesInsert, TablesUpdate } from '@/types/database.types'
+import type { ItemKind, MealType, OrderStatus, PaymentMethod, PaymentStatus, Tables, TablesInsert, TablesUpdate } from '@/types/database.types'
 
 export type AdminOrder = Tables<'orders'> & { order_items: Tables<'order_items'>[] }
 
 export type AdminOrderItemInput = {
   food_item_id: string
+  variant_id?: string | null
+  product_code?: string | null
+  variant_code?: string | null
+  variant_sku?: string | null
+  variant_snapshot?: any
   item_name: string
   item_kind: ItemKind
   item_image_url?: string | null
@@ -50,6 +55,7 @@ export type CreateAdminOrderInput = {
 export type FoodItemForOrder = Tables<'food_items'> & {
   categories: Pick<Tables<'categories'>, 'id' | 'name'> | null
   item_customizations: Tables<'item_customizations'>[]
+  food_item_variants: Tables<'food_item_variants'>[]
   thali_option_groups: (Tables<'thali_option_groups'> & {
     thali_option_items: Tables<'thali_option_items'>[]
   })[]
@@ -82,6 +88,32 @@ export async function updateOrderStatus(
   }
 }
 
+export async function updateOrderDeliveryCharge(
+  id: string,
+  newDeliveryCharge: number,
+): Promise<void> {
+  const { data: order, error: fetchErr } = await supabase
+    .from('orders')
+    .select('subtotal, tax_amount, discount_amount')
+    .eq('id', id)
+    .single()
+
+  if (fetchErr || !order) throw new Error(fetchErr?.message || 'Order not found')
+
+  const newTotal = Number(order.subtotal || 0) + Number(newDeliveryCharge) + Number(order.tax_amount || 0) - Number(order.discount_amount || 0)
+
+  const { error } = await supabase
+    .from('orders')
+    .update({
+      delivery_charge: newDeliveryCharge,
+      total_amount: newTotal,
+      is_out_of_zone: false,
+    })
+    .eq('id', id)
+
+  if (error) throw error
+}
+
 export async function fetchActiveDeliverySlots(): Promise<Tables<'delivery_slots'>[]> {
   const { data, error } = await supabase
     .from('delivery_slots')
@@ -95,7 +127,7 @@ export async function fetchActiveDeliverySlots(): Promise<Tables<'delivery_slots
 export async function fetchFoodItemsForOrder(): Promise<FoodItemForOrder[]> {
   const { data, error } = await supabase
     .from('food_items')
-    .select('*, categories(id, name), item_customizations(*), thali_option_groups(*, thali_option_items(*))')
+    .select('*, categories(id, name), item_customizations(*), food_item_variants(*), thali_option_groups(*, thali_option_items(*))')
     .eq('is_available', true)
     .order('name', { ascending: true })
   if (error) throw error
@@ -156,7 +188,7 @@ export async function fetchThaliOptionGroupsForAdminOrder(
     .from('daily_menu_items')
     .select('*, food_items(*, categories(id, name, category_type)), daily_menus!inner(menu_date, is_published, meal_type)')
     .eq('daily_menus.menu_date', deliveryDate)
-    .eq('daily_menus.meal_type', mealType)
+    .eq('daily_menus.meal_type', mealType as MealType)
     .eq('daily_menus.is_published', true)
     .eq('is_available', true)
     .neq('is_thali_option', false)
@@ -255,6 +287,7 @@ export async function createAdminOrder(input: CreateAdminOrderInput): Promise<Ta
         pincode: input.pincode ?? '',
         label: input.addressLabel ?? 'home',
         is_default: false,
+        meal_type_tag: 'both',
       })
       .select()
       .single()
@@ -264,7 +297,51 @@ export async function createAdminOrder(input: CreateAdminOrderInput): Promise<Ta
     }
   }
 
-  const orderNumber = `FIQ-${Date.now().toString().slice(-6)}${Math.floor(10 + Math.random() * 90)}`
+  // Generate Option 1 decodable order ID: FIQ-[CAT]-[SLOT][YYMMDD]-[RAND]
+  const kinds = new Set(
+    input.items.map((i) => {
+      const k = (i.item_kind || '').toLowerCase()
+      const n = (i.item_name || '').toLowerCase()
+      if (k === 'thali' || n.includes('thali')) return 'thali'
+      if (k === 'tiffin' || n.includes('tiffin')) return 'tiffin'
+      return 'alacarte'
+    }),
+  )
+
+  let catCode = 'ALA'
+  if (kinds.has('thali') && kinds.has('alacarte')) {
+    catCode = 'MIX'
+  } else if (kinds.has('thali')) {
+    catCode = 'THL'
+  } else if (kinds.has('tiffin')) {
+    catCode = 'TIF'
+  }
+
+  const slotLabel = (input.deliverySlotLabel || '').toLowerCase()
+  let slotCode = 'L'
+  if (slotLabel.includes('dinner') || slotLabel.includes('evening') || slotLabel.includes('pm')) {
+    slotCode = 'D'
+  } else if (slotLabel.includes('lunch') || slotLabel.includes('morning') || slotLabel.includes('am')) {
+    slotCode = 'L'
+  } else {
+    slotCode = new Date().getHours() >= 16 ? 'D' : 'L'
+  }
+
+  let dateCode = ''
+  if (input.deliveryDate && input.deliveryDate.length >= 10) {
+    const raw = input.deliveryDate.substring(0, 10).replace(/-/g, '')
+    dateCode = raw.length === 8 ? raw.substring(2) : raw
+  } else {
+    const d = new Date()
+    const yy = d.getFullYear().toString().slice(-2)
+    const mm = (d.getMonth() + 1).toString().padStart(2, '0')
+    const dd = d.getDate().toString().padStart(2, '0')
+    dateCode = `${yy}${mm}${dd}`
+  }
+
+  const timeSuffix = Date.now().toString().slice(-4)
+  const randNum = Math.floor(1000 + Math.random() * 9000).toString().slice(-2)
+  const orderNumber = `FIQ-${catCode}-${slotCode}${dateCode}-${timeSuffix}${randNum}`
 
   const orderInsert: TablesInsert<'orders'> = {
     order_number: orderNumber,
@@ -292,6 +369,8 @@ export async function createAdminOrder(input: CreateAdminOrderInput): Promise<Ta
     tax_amount: input.taxAmount,
     total_amount: input.totalAmount,
     special_instructions: input.specialInstructions ?? null,
+    meal_type: (input.deliverySlotLabel || '').toLowerCase().includes('dinner') ? 'dinner' : 'lunch',
+    is_out_of_zone: false,
     placed_at: new Date().toISOString(),
   }
 
@@ -309,6 +388,11 @@ export async function createAdminOrder(input: CreateAdminOrderInput): Promise<Ta
   const itemsToInsert: TablesInsert<'order_items'>[] = input.items.map((item) => ({
     order_id: createdOrder.id,
     food_item_id: item.food_item_id,
+    variant_id: item.variant_id ?? null,
+    product_code: item.product_code ?? null,
+    variant_code: item.variant_code ?? null,
+    variant_sku: item.variant_sku ?? null,
+    variant_snapshot: item.variant_snapshot ?? null,
     item_name: item.item_name,
     item_kind: item.item_kind,
     item_image_url: item.item_image_url ?? null,

@@ -10,7 +10,8 @@ export const foodItemSchema = z
     description: z.string().trim().optional().or(z.literal('')),
     food_type: z.enum(['veg', 'jain', 'vegan', 'egg', 'non_veg']),
     price: z.number().min(0, 'Price must be 0 or more'),
-    offer_price: z.number().nullable(),
+    compare_price: z.number().nullable(),
+    cost_price: z.number().nullable(),
     image_url: z.string().nullable(),
     is_available: z.boolean(),
     is_featured: z.boolean(),
@@ -19,10 +20,17 @@ export const foodItemSchema = z
     is_jain_available: z.boolean().default(false),
     track_stock: z.boolean(),
     stock_quantity: z.number().int().min(0),
+    product_code: z
+      .string()
+      .trim()
+      .toUpperCase()
+      .regex(/^[A-Z0-9_]{3,32}$/, 'Product code must be 3-32 uppercase letters, numbers, or underscores (e.g. SNACK_CHAKLI)')
+      .optional()
+      .or(z.literal('')),
   })
-  .refine((data) => data.offer_price === null || data.offer_price <= data.price, {
-    message: 'Offer price must be less than or equal to the regular price',
-    path: ['offer_price'],
+  .refine((data) => data.compare_price === null || data.compare_price >= data.price, {
+    message: 'Compare price (MRP) must be greater than or equal to the selling price',
+    path: ['compare_price'],
   })
 export type FoodItemInput = z.infer<typeof foodItemSchema>
 

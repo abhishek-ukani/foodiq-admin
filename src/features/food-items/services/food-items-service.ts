@@ -19,9 +19,10 @@ export async function createFoodItem(
   input: Omit<TablesInsert<'food_items'>, 'branch_id'>,
 ): Promise<Tables<'food_items'>> {
   const branch_id = await getDefaultBranchId()
+  const payload = { ...input, branch_id }
   const { data, error } = await supabase
     .from('food_items')
-    .insert({ ...input, branch_id })
+    .insert(payload)
     .select()
     .single()
   if (error) throw error
