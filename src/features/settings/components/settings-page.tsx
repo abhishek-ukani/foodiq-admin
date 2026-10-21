@@ -9,6 +9,7 @@ import { BrandingForm } from '@/features/settings/components/branding-form'
 import { MaintenanceForm } from '@/features/settings/components/maintenance-form'
 import { DeliveryAreasTab } from '@/features/settings/components/delivery-areas-tab'
 import { DeliverySlotsTab } from '@/features/settings/components/delivery-slots-tab'
+import { HolidaysTab } from '@/features/settings/components/holidays-tab'
 
 export function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -33,6 +34,7 @@ export function SettingsPage() {
           <TabsTrigger value="delivery">Delivery</TabsTrigger>
           <TabsTrigger value="social-seo">Social & SEO</TabsTrigger>
           <TabsTrigger value="branding">Branding</TabsTrigger>
+          <TabsTrigger value="holidays">Holidays &amp; Closures</TabsTrigger>
           <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
         </TabsList>
 
@@ -70,6 +72,9 @@ export function SettingsPage() {
         </TabsContent>
         <TabsContent value="branding" className="mt-6">
           <BrandingForm />
+        </TabsContent>
+        <TabsContent value="holidays" className="mt-6">
+          <HolidaysTab />
         </TabsContent>
         <TabsContent value="maintenance" className="mt-6">
           <MaintenanceForm />
