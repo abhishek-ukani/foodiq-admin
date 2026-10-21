@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import dayjs from 'dayjs'
 import {
   CalendarDays,
+  CalendarOff,
   ChevronDown,
   ChevronUp,
   Clock,
@@ -55,6 +56,7 @@ import {
 } from '@/features/menu/hooks/use-daily-menu'
 import { checkMenuEditLock } from '@/features/menu/utils/menu-cutoff'
 import { useDeliverySlots } from '@/features/settings/hooks/use-delivery'
+import { useHolidaySettings } from '@/features/settings/hooks/use-holidays'
 import { CURRENCY_SYMBOL } from '@/constants'
 import type { DailyMenuItemWithFood } from '@/features/menu/services/daily-menu-service'
 import type { MealType } from '@/types/database.types'
@@ -167,6 +169,14 @@ export function DailyMenuPage() {
   const { data: menuItems, isPending: itemsPending } = useMenuItems(menu?.id)
   const { data: allFoodItems } = useFoodItems()
   const { data: deliverySlots } = useDeliverySlots()
+  const { data: holidaySettings } = useHolidaySettings()
+
+  const activeHolidayForDate = useMemo(() => {
+    if (!holidaySettings?.enabled) return null
+    return holidaySettings.holidays.find(
+      (h) => h.isActive && date >= h.startDate && date <= h.endDate && (h.mealType === 'all' || h.mealType === meal)
+    )
+  }, [holidaySettings, date, meal])
 
   const matchingSlot = deliverySlots?.find((s) => s.meal_type === meal && s.is_active)
   const defaultSlotCutoff = matchingSlot?.cutoff_time?.slice(0, 5) ?? ''
@@ -241,6 +251,26 @@ export function DailyMenuPage() {
           <ArrowRight className="size-3.5" />
         </Link>
       </div>
+
+      {activeHolidayForDate && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 p-3.5 text-xs text-red-950 shadow-xs">
+          <div className="flex items-start sm:items-center gap-2.5">
+            <CalendarOff className="size-4 text-red-600 shrink-0 mt-0.5 sm:mt-0" />
+            <div>
+              <span className="font-bold">Scheduled Holiday Active for this Date: {activeHolidayForDate.title}</span>
+              <p className="text-red-800 text-[11px] mt-0.5">
+                {activeHolidayForDate.message || `Kitchen is closed for ${activeHolidayForDate.mealType === 'all' ? 'All Meals' : activeHolidayForDate.mealType}. Customer ordering is disabled.`}
+              </p>
+            </div>
+          </div>
+          <Link
+            to={`${ADMIN_ROUTES.settings}?tab=holidays`}
+            className="font-semibold text-red-700 hover:underline shrink-0 bg-white px-2.5 py-1 rounded-md border border-red-200 self-start sm:self-center"
+          >
+            Manage Holidays
+          </Link>
+        </div>
+      )}
 
       {lockStatus.isLocked && (
         <div className="flex items-center gap-2.5 rounded-lg bg-amber-50 border border-amber-200/80 p-3 text-xs text-amber-950 font-medium shadow-sm">

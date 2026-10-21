@@ -58,3 +58,22 @@ export const maintenanceSchema = z.object({
   message: z.string().trim().optional().or(z.literal('')),
 })
 export type MaintenanceInput = z.infer<typeof maintenanceSchema>
+
+export const kitchenHolidaySchema = z.object({
+  id: z.string(),
+  title: z.string().trim().min(1, 'Holiday title or occasion is required'),
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Valid start date required (YYYY-MM-DD)'),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Valid end date required (YYYY-MM-DD)'),
+  mealType: z.enum(['all', 'lunch', 'dinner']),
+  message: z.string().trim().optional().or(z.literal('')),
+  isActive: z.boolean(),
+  createdAt: z.string(),
+})
+export type KitchenHoliday = z.infer<typeof kitchenHolidaySchema>
+
+export const holidaySettingsSchema = z.object({
+  enabled: z.boolean(),
+  holidays: z.array(kitchenHolidaySchema),
+})
+export type HolidaySettings = z.infer<typeof holidaySettingsSchema>
+
