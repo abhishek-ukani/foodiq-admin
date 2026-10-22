@@ -129,7 +129,19 @@ export async function createFoodItemVariant(
     .select()
     .single()
 
-  if (error) throw error
+  if (error) {
+    if (error.message?.includes('variant_code') || (error as any).code === 'PGRST204') {
+      const { variant_code: _v, ...cleanPayload } = payload as any
+      const retry = await supabase
+        .from('food_item_variants')
+        .insert(cleanPayload)
+        .select()
+        .single()
+      if (retry.error) throw retry.error
+      return retry.data
+    }
+    throw error
+  }
   return data
 }
 
@@ -150,7 +162,23 @@ export async function updateFoodItemVariant(
     .select()
     .single()
 
-  if (error) throw error
+  if (error) {
+    if (error.message?.includes('variant_code') || (error as any).code === 'PGRST204') {
+      const { variant_code: _v, ...cleanInput } = input as any
+      const retry = await supabase
+        .from('food_item_variants')
+        .update({
+          ...cleanInput,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id)
+        .select()
+        .single()
+      if (retry.error) throw retry.error
+      return retry.data
+    }
+    throw error
+  }
   return data
 }
 

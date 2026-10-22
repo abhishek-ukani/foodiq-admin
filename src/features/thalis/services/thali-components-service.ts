@@ -18,13 +18,13 @@ export type ThaliComponentWithFood = Tables<'thali_components'> & {
 }
 
 export const COMPONENT_CATEGORY_LABELS: Record<ThaliComponentCategoryType, string> = {
-  bread: '🍞 Breads',
-  sabji: '🍲 Shaak / Curries',
+  sabji: '🍲 Sabji / Shaak',
+  bread: '🍞 Roti / Bread',
+  rice: '🍚 Dal-Bhat & Rice',
   sweet: '🍬 Mithai / Sweets',
-  snack: '🥟 Farsan / Snacks',
-  rice: '🍚 Rice / Dal / Kadhi',
-  accompaniment: '🥗 Salads & Chutneys',
+  accompaniment: '🥗 Accompaniments & Sambhar',
   beverage: '🥛 Drinks / Chaas',
+  snack: '🥟 Snacks',
 }
 
 const QUERY_KEY = ['admin', 'thali-components']

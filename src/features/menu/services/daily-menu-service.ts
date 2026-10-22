@@ -3,7 +3,9 @@ import { getDefaultBranchId } from '@/lib/default-branch'
 import type { MealType, Tables, TablesUpdate } from '@/types/database.types'
 
 export type DailyMenuItemWithFood = Tables<'daily_menu_items'> & {
-  food_items: Tables<'food_items'>
+  food_items: Tables<'food_items'> & {
+    categories?: Pick<Tables<'categories'>, 'id' | 'name' | 'category_type'> | null
+  }
 }
 
 export interface DailyMenuBundle {
@@ -87,7 +89,7 @@ export async function ensureDailyMenu(menuDate: string, mealType: MealType): Pro
 export async function fetchMenuItems(dailyMenuId: string): Promise<DailyMenuItemWithFood[]> {
   const { data, error } = await supabase
     .from('daily_menu_items')
-    .select('*, food_items(*)')
+    .select('*, food_items(*, categories(id, name, category_type))')
     .eq('daily_menu_id', dailyMenuId)
     .order('display_order')
   if (error) throw error
