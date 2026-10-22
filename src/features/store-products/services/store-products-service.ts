@@ -133,7 +133,7 @@ export async function fetchStoreProducts(): Promise<StoreProduct[]> {
   const [catalog, { data: categories }, { data: foodItems }, { data: variants }] = await Promise.all([
     getStoreProductsCatalog(),
     supabase.from('categories').select('*'),
-    supabase.from('food_items').select('id, name, name_gujarati, description, image_url, unit_label, product_code'),
+    supabase.from('food_items').select('id, name, name_gujarati, description, image_url, unit_label'),
     supabase.from('food_item_variants').select('*').eq('is_active', true).order('display_order', { ascending: true }),
   ])
 
