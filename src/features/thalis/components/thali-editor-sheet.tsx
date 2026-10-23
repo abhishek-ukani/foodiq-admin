@@ -249,7 +249,7 @@ export function ThaliEditorSheet({
     const inferCatType = (name: string) => {
       const lower = name.toLowerCase()
       if (lower.includes('sabji') || lower.includes('sabzi') || lower.includes('shabji')) return 'sabji'
-      if (lower.includes('roti') || lower.includes('bread') || lower.includes('bhakhri')) return 'bread'
+      if (lower.includes('roti') || lower.includes('bread') || lower.includes('bhakhri') || lower.includes('bhakhari')) return 'bread'
       if (lower.includes('sweet') || lower.includes('mithai')) return 'sweet'
       if (lower.includes('snack') || lower.includes('farsan')) return 'snack'
       if (lower.includes('rice') || lower.includes('bhat') || lower.includes('khichdi') || lower.includes('dal')) return 'rice'
@@ -359,7 +359,8 @@ export function ThaliEditorSheet({
       if (
         groupNameLower.includes('roti') ||
         groupNameLower.includes('bread') ||
-        groupNameLower.includes('bhakhri')
+        groupNameLower.includes('bhakhri') ||
+        groupNameLower.includes('bhakhari')
       ) {
         return (
           catType === 'bread' ||
@@ -369,6 +370,7 @@ export function ThaliEditorSheet({
           itemName.includes('roti') ||
           itemName.includes('rotli') ||
           itemName.includes('bhakhri') ||
+          itemName.includes('bhakhari') ||
           itemName.includes('puri')
         )
       }

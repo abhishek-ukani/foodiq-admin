@@ -45,6 +45,7 @@ export function classifyComponentType(rawName: string): ParsedItemComponent['cat
     name.includes('roti') ||
     name.includes('phulka') ||
     name.includes('bhakhri') ||
+    name.includes('bhakhari') ||
     name.includes('puri') ||
     name.includes('thepla') ||
     name.includes('rotla') ||
@@ -214,7 +215,7 @@ export function classifyItemCategory(itemName: string, itemKind: string): ItemCa
   if (n.includes('shaak') || n.includes('sabji') || n.includes('curry')) {
     return 'sabji'
   }
-  if (n.includes('rotli') || n.includes('roti') || n.includes('bhakhri') || n.includes('thepla')) {
+  if (n.includes('rotli') || n.includes('roti') || n.includes('bhakhri') || n.includes('bhakhari') || n.includes('thepla')) {
     return 'bread'
   }
   return 'alacarte'
@@ -245,19 +246,19 @@ export function detectMealVariant(item: Tables<'order_items'>): string {
  * Resolves standard pieces of bread per meal serving.
  * Thakar Rasoi / FoodIQ standards:
  * - Rotli / Phulka: 5 pcs per meal
- * - Bhakhri: 2 pcs per meal (as specified in "5 Roti / 2 Bhakhri")
+ * - Bhakhari / Bhakhri: 2 pcs per meal (as specified in "5 Roti / 2 Bhakhri")
  * - Thepla: 4 pcs per meal
  * - Puri: 5 pcs per meal
  * - Rotla: 2 pcs per meal
  */
 export function getBreadPiecesPerServing(breadType: string, explicitText?: string): number {
   if (explicitText) {
-    // If text mentions both like "5 Roti / 2 Bhakhri"
-    if (explicitText.includes('/') && explicitText.toLowerCase().includes('bhakhri')) {
-      return breadType === 'bhakhri' ? 2 : 5
+    // If text mentions both like "5 Roti / 2 Bhakhri" or "5 Roti / 2 Bhakhari"
+    if (explicitText.includes('/') && (explicitText.toLowerCase().includes('bhakhri') || explicitText.toLowerCase().includes('bhakhari'))) {
+      return breadType === 'bhakhri' || breadType === 'bhakhari' ? 2 : 5
     }
-    // Check for explicit "5 pcs", "5 Rotli", "2 Bhakhri", "4 Thepla", etc.
-    const match = explicitText.match(/(\d+)\s*(?:pcs|pc|rotli|roti|phulka|bhakhri|puri|thepla|rotla)?/i)
+    // Check for explicit "5 pcs", "5 Rotli", "2 Bhakhri", "2 Bhakhari", "4 Thepla", etc.
+    const match = explicitText.match(/(\d+)\s*(?:pcs|pc|rotli|roti|phulka|bhakhri|bhakhari|puri|thepla|rotla)?/i)
     if (match) {
       const num = parseInt(match[1], 10)
       if (num > 0 && num <= 20) return num
@@ -266,6 +267,7 @@ export function getBreadPiecesPerServing(breadType: string, explicitText?: strin
 
   switch (breadType) {
     case 'bhakhri':
+    case 'bhakhari':
       return 2
     case 'thepla':
       return 4
@@ -283,7 +285,7 @@ export function getBreadPiecesPerServing(breadType: string, explicitText?: strin
  * Extracts piece count for standalone bread items (e.g. "Rotli (5 pcs)" -> 5, "Extra Bhakhri" -> 1).
  */
 export function getStandaloneBreadPieces(itemName: string): number {
-  const match = itemName.match(/(\d+)\s*(?:pcs|pc|rotli|roti|phulka|bhakhri|puri|thepla|rotla)?/i)
+  const match = itemName.match(/(\d+)\s*(?:pcs|pc|rotli|roti|phulka|bhakhri|bhakhari|puri|thepla|rotla)?/i)
   if (match) {
     const num = parseInt(match[1], 10)
     if (num > 0 && num <= 50) return num
@@ -398,7 +400,7 @@ export function parseOrderItemDetails(item: Tables<'order_items'>): ParsedOrderI
         let catType = classifyComponentType(a.name)
         if (gn.includes('sabji') || gn.includes('shaak') || gn.includes('curry')) {
           catType = 'sabji'
-        } else if (gn.includes('bread') || gn.includes('roti') || gn.includes('bhakhri')) {
+        } else if (gn.includes('bread') || gn.includes('roti') || gn.includes('bhakhri') || gn.includes('bhakhari')) {
           catType = 'bread'
         } else if (gn.includes('dal') || gn.includes('rice')) {
           catType = 'rice_dal'
@@ -424,7 +426,7 @@ export function parseOrderItemDetails(item: Tables<'order_items'>): ParsedOrderI
     ...components.filter((c) => c.categoryType === 'bread').map((c) => c.name),
   ].map((s) => s.toLowerCase())
 
-  if (baseBreadNames.some((s) => s.includes('bhakhri'))) breadType = 'bhakhri'
+  if (baseBreadNames.some((s) => s.includes('bhakhri') || s.includes('bhakhari'))) breadType = 'bhakhri'
   else if (baseBreadNames.some((s) => s.includes('thepla'))) breadType = 'thepla'
   else if (baseBreadNames.some((s) => s.includes('puri'))) breadType = 'puri'
   else if (baseBreadNames.some((s) => s.includes('rotla'))) breadType = 'rotla'
@@ -437,7 +439,10 @@ export function parseOrderItemDetails(item: Tables<'order_items'>): ParsedOrderI
   if (categoryKind === 'meal') {
     const breadComp = components.find((c) => c.categoryType === 'bread')
     if (breadComp || breadType) {
-      const effectiveType = breadType || (breadComp?.name.toLowerCase().includes('bhakhri') ? 'bhakhri' : 'rotli')
+      const isBhakhri =
+        breadType === 'bhakhri' ||
+        (breadComp && (breadComp.name.toLowerCase().includes('bhakhri') || breadComp.name.toLowerCase().includes('bhakhari')))
+      const effectiveType = breadType || (isBhakhri ? 'bhakhri' : 'rotli')
       baseBreadPerMeal = getBreadPiecesPerServing(effectiveType, breadComp?.name || item.item_name)
       baseBreadCount = baseBreadPerMeal * (item.quantity || 1)
 
@@ -445,7 +450,7 @@ export function parseOrderItemDetails(item: Tables<'order_items'>): ParsedOrderI
         breadComp.quantity = baseBreadPerMeal
       } else {
         components.unshift({
-          name: effectiveType === 'bhakhri' ? 'Bhakhri' : 'Rotli',
+          name: isBhakhri ? 'Bhakhari' : 'Rotli',
           quantity: baseBreadPerMeal,
           categoryType: 'bread',
         })
@@ -456,6 +461,7 @@ export function parseOrderItemDetails(item: Tables<'order_items'>): ParsedOrderI
     item.item_name.toLowerCase().includes('rotli') ||
     item.item_name.toLowerCase().includes('roti') ||
     item.item_name.toLowerCase().includes('bhakhri') ||
+    item.item_name.toLowerCase().includes('bhakhari') ||
     item.item_name.toLowerCase().includes('thepla') ||
     item.item_name.toLowerCase().includes('puri')
   ) {
@@ -472,12 +478,13 @@ export function parseOrderItemDetails(item: Tables<'order_items'>): ParsedOrderI
       n.includes('roti') ||
       n.includes('phulka') ||
       n.includes('bhakhri') ||
+      n.includes('bhakhari') ||
       n.includes('thepla') ||
       n.includes('puri') ||
       n.includes('rotla')
     ) {
-      const match = n.match(/(\d+)\s*(?:pcs|pc|rotli|roti|phulka|bhakhri|thepla|puri|rotla)?/i)
-      const count = match ? parseInt(match[1], 10) : (n.includes('bhakhri') ? 1 : 2)
+      const match = n.match(/(\d+)\s*(?:pcs|pc|rotli|roti|phulka|bhakhri|bhakhari|thepla|puri|rotla)?/i)
+      const count = match ? parseInt(match[1], 10) : ((n.includes('bhakhri') || n.includes('bhakhari')) ? 1 : 2)
       addonBreadCount += count * (item.quantity || 1)
     }
   })
@@ -502,6 +509,16 @@ export function parseOrderItemDetails(item: Tables<'order_items'>): ParsedOrderI
   }
 }
 
+export interface KitchenFoodItemProduction {
+  id?: string
+  name: string
+  categoryType: 'bread' | 'sabji' | 'rice_dal' | 'farsan' | 'sweet' | 'accompaniment' | 'beverage' | 'other'
+  baseCount: number
+  addonCount: number
+  totalCount: number
+  unit: string
+}
+
 export interface KitchenProductionSheet {
   totalOrders: number
   totalMeals: number
@@ -511,6 +528,7 @@ export interface KitchenProductionSheet {
   totalDeluxeThalis: number
   totalOtherMeals: number
   mealsWithDalRice: number
+  foodItems: Record<string, KitchenFoodItemProduction>
   breads: {
     rotli: { base: number; addOn: number; total: number }
     bhakhri: { base: number; addOn: number; total: number }
@@ -552,6 +570,7 @@ export interface KitchenProductionSheet {
 
 /**
  * Aggregates all orders into a single Kitchen Production Sheet (Cook & Bake count).
+ * Directly links with food items: no artificial mapping or loss of ordered items.
  */
 export function calculateKitchenProduction(orders: AdminOrder[]): KitchenProductionSheet {
   let totalMeals = 0
@@ -560,6 +579,48 @@ export function calculateKitchenProduction(orders: AdminOrder[]): KitchenProduct
   let totalClassicThalis = 0
   let totalDeluxeThalis = 0
   let totalOtherMeals = 0
+
+  const foodItemsMap: Record<string, KitchenFoodItemProduction> = {}
+
+  const addFoodItem = (
+    rawName: string,
+    quantity: number,
+    isAddon: boolean,
+    categoryType: KitchenFoodItemProduction['categoryType'],
+    defaultUnit?: string,
+  ) => {
+    const trimmed = rawName.trim()
+    const key = trimmed.toLowerCase()
+    if (!key) return
+
+    const unit =
+      defaultUnit ||
+      (categoryType === 'bread'
+        ? 'pcs'
+        : categoryType === 'rice_dal'
+          ? 'bowls'
+          : categoryType === 'sabji' || categoryType === 'accompaniment'
+            ? 'por.'
+            : 'pcs')
+
+    if (!foodItemsMap[key]) {
+      foodItemsMap[key] = {
+        name: trimmed,
+        categoryType,
+        baseCount: 0,
+        addonCount: 0,
+        totalCount: 0,
+        unit,
+      }
+    }
+
+    if (isAddon) {
+      foodItemsMap[key].addonCount += quantity
+    } else {
+      foodItemsMap[key].baseCount += quantity
+    }
+    foodItemsMap[key].totalCount += quantity
+  }
 
   const breads = {
     rotli: { base: 0, addOn: 0, total: 0 },
@@ -642,16 +703,22 @@ export function calculateKitchenProduction(orders: AdminOrder[]): KitchenProduct
 
         // Add base breads for meals (only if base breads actually exist)
         if (parsed.baseBreadCount > 0) {
-          if (parsed.breadType === 'bhakhri') {
+          const breadCompName = parsed.components.find((c) => c.categoryType === 'bread')?.name
+          if (parsed.breadType === 'bhakhri' || parsed.breadType === 'bhakhari') {
             breads.bhakhri.base += parsed.baseBreadCount
+            addFoodItem(breadCompName || 'Bhakhari', parsed.baseBreadCount, false, 'bread', 'pcs')
           } else if (parsed.breadType === 'thepla') {
             breads.thepla.base += parsed.baseBreadCount
+            addFoodItem(breadCompName || 'Thepla', parsed.baseBreadCount, false, 'bread', 'pcs')
           } else if (parsed.breadType === 'puri') {
             breads.puri.base += parsed.baseBreadCount
+            addFoodItem(breadCompName || 'Puri', parsed.baseBreadCount, false, 'bread', 'pcs')
           } else if (parsed.breadType === 'rotla') {
             breads.rotla.base += parsed.baseBreadCount
+            addFoodItem(breadCompName || 'Bajri no Rotlo', parsed.baseBreadCount, false, 'bread', 'pcs')
           } else {
             breads.rotli.base += parsed.baseBreadCount
+            addFoodItem(breadCompName || 'Rotli', parsed.baseBreadCount, false, 'bread', 'pcs')
           }
         }
       } else {
@@ -659,16 +726,21 @@ export function calculateKitchenProduction(orders: AdminOrder[]): KitchenProduct
 
         // Standalone bread item counting
         if (parsed.categoryKind === 'bread' || parsed.baseBreadCount > 0) {
-          if (parsed.breadType === 'bhakhri') {
+          if (parsed.breadType === 'bhakhri' || parsed.breadType === 'bhakhari') {
             breads.bhakhri.addOn += parsed.baseBreadCount
+            addFoodItem(parsed.itemName || 'Bhakhari', parsed.baseBreadCount, true, 'bread', 'pcs')
           } else if (parsed.breadType === 'thepla') {
             breads.thepla.addOn += parsed.baseBreadCount
+            addFoodItem(parsed.itemName || 'Thepla', parsed.baseBreadCount, true, 'bread', 'pcs')
           } else if (parsed.breadType === 'puri') {
             breads.puri.addOn += parsed.baseBreadCount
+            addFoodItem(parsed.itemName || 'Puri', parsed.baseBreadCount, true, 'bread', 'pcs')
           } else if (parsed.breadType === 'rotla') {
             breads.rotla.addOn += parsed.baseBreadCount
+            addFoodItem(parsed.itemName || 'Bajri no Rotlo', parsed.baseBreadCount, true, 'bread', 'pcs')
           } else {
             breads.rotli.addOn += parsed.baseBreadCount
+            addFoodItem(parsed.itemName || 'Rotli', parsed.baseBreadCount, true, 'bread', 'pcs')
           }
         }
       }
@@ -676,22 +748,32 @@ export function calculateKitchenProduction(orders: AdminOrder[]): KitchenProduct
       // Add-on breads from meal customizations (attribute each addon to its own bread station!)
       parsed.addons.forEach((addon) => {
         const aName = addon.name.toLowerCase()
-        const match = aName.match(/(\d+)\s*(?:pcs|pc|rotli|roti|phulka|bhakhri|thepla|puri|rotla)?/i)
-        if (aName.includes('bhakhri')) {
+        const match = aName.match(/(\d+)\s*(?:pcs|pc|rotli|roti|phulka|bhakhri|bhakhari|thepla|puri|rotla)?/i)
+        if (aName.includes('bhakhri') || aName.includes('bhakhari')) {
           const count = match ? parseInt(match[1], 10) : 1
-          breads.bhakhri.addOn += count * parsed.quantity
+          const totalQty = count * parsed.quantity
+          breads.bhakhri.addOn += totalQty
+          addFoodItem('Bhakhari', totalQty, true, 'bread', 'pcs')
         } else if (aName.includes('thepla')) {
           const count = match ? parseInt(match[1], 10) : 2
-          breads.thepla.addOn += count * parsed.quantity
+          const totalQty = count * parsed.quantity
+          breads.thepla.addOn += totalQty
+          addFoodItem('Thepla', totalQty, true, 'bread', 'pcs')
         } else if (aName.includes('puri')) {
           const count = match ? parseInt(match[1], 10) : 4
-          breads.puri.addOn += count * parsed.quantity
+          const totalQty = count * parsed.quantity
+          breads.puri.addOn += totalQty
+          addFoodItem('Puri', totalQty, true, 'bread', 'pcs')
         } else if (aName.includes('rotla')) {
           const count = match ? parseInt(match[1], 10) : 1
-          breads.rotla.addOn += count * parsed.quantity
+          const totalQty = count * parsed.quantity
+          breads.rotla.addOn += totalQty
+          addFoodItem('Bajri no Rotlo', totalQty, true, 'bread', 'pcs')
         } else if (aName.includes('rotli') || aName.includes('roti') || aName.includes('phulka')) {
           const count = match ? parseInt(match[1], 10) : 2
-          breads.rotli.addOn += count * parsed.quantity
+          const totalQty = count * parsed.quantity
+          breads.rotli.addOn += totalQty
+          addFoodItem('Rotli', totalQty, true, 'bread', 'pcs')
         }
       })
 
@@ -699,39 +781,48 @@ export function calculateKitchenProduction(orders: AdminOrder[]): KitchenProduct
       parsed.components.forEach((comp) => {
         const cName = comp.name.trim()
         if (!cName) return
+        if (comp.categoryType === 'bread') return // Already handled above with piece counts!
+
+        const qty = (comp.quantity || 1) * parsed.quantity
 
         if (comp.categoryType === 'sabji') {
           const key = cName.toLowerCase()
           if (!sabjisMap[key]) {
             sabjisMap[key] = { name: cName, basePortions: 0, addonPortions: 0, totalPortions: 0 }
           }
-          const qty = (comp.quantity || 1) * parsed.quantity
           sabjisMap[key].basePortions += qty
           sabjisMap[key].totalPortions += qty
+          addFoodItem(cName, qty, false, 'sabji', 'por.')
         } else if (comp.categoryType === 'rice_dal') {
           const key = cName.toLowerCase()
           if (!dalKadhiRiceMap[key]) {
             dalKadhiRiceMap[key] = { name: cName, portions: 0 }
           }
-          dalKadhiRiceMap[key].portions += (comp.quantity || 1) * parsed.quantity
+          dalKadhiRiceMap[key].portions += qty
+          addFoodItem(cName, qty, false, 'rice_dal', 'bowls')
         } else if (comp.categoryType === 'farsan') {
           const key = cName.toLowerCase()
           if (!snacksFarsanMap[key]) {
             snacksFarsanMap[key] = { name: cName, count: 0 }
           }
-          snacksFarsanMap[key].count += (comp.quantity || 1) * parsed.quantity
+          snacksFarsanMap[key].count += qty
+          addFoodItem(cName, qty, false, 'farsan', 'pcs')
         } else if (comp.categoryType === 'sweet') {
           const key = cName.toLowerCase()
           if (!sweetsMap[key]) {
             sweetsMap[key] = { name: cName, count: 0 }
           }
-          sweetsMap[key].count += (comp.quantity || 1) * parsed.quantity
+          sweetsMap[key].count += qty
+          addFoodItem(cName, qty, false, 'sweet', 'pcs')
         } else if (comp.categoryType === 'accompaniment') {
           const key = cName.toLowerCase()
           if (!saladsMap[key]) {
             saladsMap[key] = { name: cName, count: 0 }
           }
-          saladsMap[key].count += (comp.quantity || 1) * parsed.quantity
+          saladsMap[key].count += qty
+          addFoodItem(cName, qty, false, 'accompaniment', 'por.')
+        } else {
+          addFoodItem(cName, qty, false, 'other', 'pcs')
         }
       })
 
@@ -742,18 +833,21 @@ export function calculateKitchenProduction(orders: AdminOrder[]): KitchenProduct
           snacksFarsanMap[key] = { name: parsed.itemName, count: 0 }
         }
         snacksFarsanMap[key].count += parsed.quantity
+        addFoodItem(parsed.itemName, parsed.quantity, false, 'farsan', 'pcs')
       } else if (parsed.categoryKind === 'sweet') {
         const key = parsed.itemName.toLowerCase()
         if (!sweetsMap[key]) {
           sweetsMap[key] = { name: parsed.itemName, count: 0 }
         }
         sweetsMap[key].count += parsed.quantity
+        addFoodItem(parsed.itemName, parsed.quantity, false, 'sweet', 'pcs')
       } else if (parsed.categoryKind === 'beverage') {
         const key = parsed.itemName.toLowerCase()
         if (!beveragesMap[key]) {
           beveragesMap[key] = { name: parsed.itemName, count: 0 }
         }
         beveragesMap[key].count += parsed.quantity
+        addFoodItem(parsed.itemName, parsed.quantity, false, 'beverage', 'por.')
       } else if (parsed.categoryKind === 'sabji') {
         const key = parsed.itemName.toLowerCase()
         if (!sabjisMap[key]) {
@@ -761,14 +855,14 @@ export function calculateKitchenProduction(orders: AdminOrder[]): KitchenProduct
         }
         sabjisMap[key].basePortions += parsed.quantity
         sabjisMap[key].totalPortions += parsed.quantity
-      }
-
-      if (parsed.categoryKind === 'accompaniment') {
+        addFoodItem(parsed.itemName, parsed.quantity, false, 'sabji', 'por.')
+      } else if (parsed.categoryKind === 'accompaniment') {
         const key = parsed.itemName.toLowerCase()
         if (!saladsMap[key]) {
           saladsMap[key] = { name: parsed.itemName, count: 0 }
         }
         saladsMap[key].count += parsed.quantity
+        addFoodItem(parsed.itemName, parsed.quantity, false, 'accompaniment', 'por.')
       }
 
       // Process Add-ons (e.g., Extra Sabji)
@@ -784,6 +878,7 @@ export function calculateKitchenProduction(orders: AdminOrder[]): KitchenProduct
           const addQty = (addon.quantity || 1) * parsed.quantity
           sabjisMap[key].addonPortions += addQty
           sabjisMap[key].totalPortions += addQty
+          addFoodItem(cleanName, addQty, true, 'sabji', 'por.')
         }
       })
     })
@@ -834,6 +929,7 @@ export function calculateKitchenProduction(orders: AdminOrder[]): KitchenProduct
     totalDeluxeThalis,
     totalOtherMeals,
     mealsWithDalRice,
+    foodItems: foodItemsMap,
     breads,
     sabjis: sabjisMap,
     totalSabjiPortions,

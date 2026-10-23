@@ -299,7 +299,7 @@ export function OrdersPage() {
   const { data: allFoodItems } = useFoodItems()
   const { data: thaliComponents } = useThaliComponents()
 
-  // Map of canonical food_items from the database table (preserves exact casing and name)
+  // Map of canonical food_items from the database table (direct 1-to-1 link)
   const foodItemByName = useMemo(() => {
     const map = new Map<string, Tables<'food_items'>>()
     allFoodItems?.forEach((fi) => {
@@ -308,328 +308,71 @@ export function OrdersPage() {
     return map
   }, [allFoodItems])
 
-  // All items from all meals available for sale + any items ordered in current batch
-  const availableMealItems = useMemo(() => {
-    const itemsMap = new Map<string, { id: string; name: string; kind: string; category?: string }>()
+  // Kitchen Production Batch:
+  // Directly linked to food items: only items present in order meal items are shown,
+  // displaying with the exact same canonical name as per food_items table.
+  const productionBatchItems = useMemo(() => {
+    const itemsMap = new Map<string, {
+      id: string
+      name: string
+      count: number
+      unit: string
+      subtitle: string
+      categoryType: string
+    }>()
 
-    // A. From daily_menu_items for active date
-    batchDailyMenuItems?.forEach((dmi: any) => {
-      const fi = dmi.food_items
-      if (!fi) return
-      // Exclude whole thali bundle packages (Regular Thali, Deluxe Thali, etc.)
-      // We want the meal items themselves (Rotli, Sev-tameta, dudhi-dal, Dal-Bhat, Mamra no Chewdo, etc.)
-      if (fi.kind !== 'thali' && !fi.name.toLowerCase().includes('thali')) {
-        const canonical = foodItemByName.get(fi.name.trim().toLowerCase()) || fi
-        itemsMap.set(canonical.name.trim().toLowerCase(), {
-          id: canonical.id,
-          name: canonical.name, // EXACT name from food_items table!
-          kind: canonical.kind,
-          category: (canonical as any).categories?.category_type || '',
-        })
+    Object.values(filteredProduction.foodItems || {}).forEach((prodItem) => {
+      if (prodItem.totalCount <= 0) return
+
+      const canonical = foodItemByName.get(prodItem.name.trim().toLowerCase())
+      const finalName = canonical?.name || prodItem.name
+      const key = finalName.trim().toLowerCase()
+
+      let subtitle = ''
+      if (prodItem.categoryType === 'bread') {
+        subtitle = `${prodItem.baseCount} base + ${prodItem.addonCount} extra`
+      } else if (prodItem.addonCount > 0) {
+        subtitle = `${prodItem.baseCount} base + ${prodItem.addonCount} extra`
+      } else {
+        const unitWord =
+          prodItem.unit === 'bowls'
+            ? prodItem.totalCount === 1 ? 'bowl' : 'bowls'
+            : prodItem.unit === 'por.'
+              ? prodItem.totalCount === 1 ? 'portion' : 'portions'
+              : prodItem.totalCount === 1 ? 'item' : 'items'
+        subtitle = `${prodItem.totalCount} ${unitWord} ordered`
       }
-    })
 
-    // B. If no daily menu items found for this date, fall back to global thali_components
-    if (itemsMap.size === 0 && thaliComponents && thaliComponents.length > 0) {
-      thaliComponents.forEach((tc) => {
-        const fi = tc.food_items
-        if (fi && fi.kind !== 'thali' && !fi.name.toLowerCase().includes('thali')) {
-          const canonical = foodItemByName.get(fi.name.trim().toLowerCase()) || fi
-          itemsMap.set(canonical.name.trim().toLowerCase(), {
-            id: canonical.id,
-            name: canonical.name, // EXACT name from food_items table!
-            kind: canonical.kind,
-            category: tc.category_type || '',
-          })
-        }
-      })
-    }
-
-    // C. Always include all ordered items from active production orders
-    // 1. Sabjis in orders
-    Object.values(filteredProduction.sabjis).forEach((s) => {
-      const canonical = foodItemByName.get(s.name.trim().toLowerCase())
-      const finalName = canonical?.name || s.name
-      itemsMap.set(finalName.trim().toLowerCase(), {
-        id: canonical?.id || finalName,
+      itemsMap.set(key, {
+        id: canonical?.id || key,
         name: finalName,
-        kind: 'single',
-        category: 'sabji',
+        count: prodItem.totalCount,
+        unit: prodItem.unit,
+        subtitle,
+        categoryType: prodItem.categoryType,
       })
     })
-
-    // 2. Dal / Rice in orders
-    Object.values(filteredProduction.dalKadhiRice).forEach((d) => {
-      const canonical = foodItemByName.get(d.name.trim().toLowerCase()) || foodItemByName.get('dal-bhat')
-      const finalName = canonical?.name || d.name
-      itemsMap.set(finalName.trim().toLowerCase(), {
-        id: canonical?.id || finalName,
-        name: finalName,
-        kind: 'single',
-        category: 'rice',
-      })
-    })
-
-    // 3. Salads in orders
-    Object.values(filteredProduction.salads.items).forEach((sal) => {
-      const canonical = foodItemByName.get(sal.name.trim().toLowerCase()) || foodItemByName.get('fresh green salad')
-      const finalName = canonical?.name || sal.name
-      itemsMap.set(finalName.trim().toLowerCase(), {
-        id: canonical?.id || finalName,
-        name: finalName,
-        kind: 'single',
-        category: 'accompaniment',
-      })
-    })
-
-    // 4. Snacks / Farsan in orders
-    Object.values(filteredProduction.snacksFarsan).forEach((snk) => {
-      const canonical = foodItemByName.get(snk.name.trim().toLowerCase())
-      const finalName = canonical?.name || snk.name
-      itemsMap.set(finalName.trim().toLowerCase(), {
-        id: canonical?.id || finalName,
-        name: finalName,
-        kind: 'single',
-        category: 'snack',
-      })
-    })
-
-    // 5. Sweets in orders
-    Object.values(filteredProduction.sweets).forEach((swt) => {
-      const canonical = foodItemByName.get(swt.name.trim().toLowerCase())
-      const finalName = canonical?.name || swt.name
-      itemsMap.set(finalName.trim().toLowerCase(), {
-        id: canonical?.id || finalName,
-        name: finalName,
-        kind: 'single',
-        category: 'sweet',
-      })
-    })
-
-    // 6. Ensure Rotli is included if available in food items
-    if (!itemsMap.has('rotli')) {
-      const rotliFi = foodItemByName.get('rotli')
-      if (rotliFi) {
-        itemsMap.set('rotli', {
-          id: rotliFi.id,
-          name: rotliFi.name,
-          kind: 'single',
-          category: 'bread',
-        })
-      }
-    }
-
-    // 7. If Bhakhri ordered, ensure it is included
-    if (filteredProduction.breads.bhakhri.total > 0 && !itemsMap.has('bhakhri') && !itemsMap.has('gujarati bhakhri')) {
-      const bhakhriFi = foodItemByName.get('bhakhri') || foodItemByName.get('gujarati bhakhri')
-      itemsMap.set('bhakhri', {
-        id: bhakhriFi?.id || 'bhakhri',
-        name: bhakhriFi?.name || 'Bhakhri',
-        kind: 'single',
-        category: 'bread',
-      })
-    }
-
-    // Fallback: If still empty, use available single items from food_items table
-    if (itemsMap.size === 0 && allFoodItems && allFoodItems.length > 0) {
-      allFoodItems
-        .filter((fi) => fi.kind === 'single' && fi.is_available)
-        .forEach((fi) => {
-          itemsMap.set(fi.name.trim().toLowerCase(), {
-            id: fi.id,
-            name: fi.name,
-            kind: fi.kind,
-            category: (fi as any).categories?.category_type || '',
-          })
-        })
-    }
 
     // Sort into logical kitchen production order:
-    // 1: Breads -> 2: Sabjis -> 3: Dal & Rice -> 4: Salads -> 5: Snacks/Farsan -> 6: Sweets -> 7: Others
-    const categoryPriority = (item: { name: string; category?: string }): number => {
-      const n = item.name.toLowerCase()
-      if (n.includes('rotli') || n.includes('roti') || n.includes('bhakhri') || n.includes('thepla') || n.includes('puri') || n.includes('rotla')) return 1
-      if (n.includes('sev') || n.includes('tameta') || n.includes('dudhi') || n.includes('bhinda') || n.includes('bataka') || n.includes('shaak') || n.includes('sabji') || item.category === 'sabji') return 2
-      if (n.includes('dal') || n.includes('bhat') || n.includes('rice') || n.includes('kadhi') || item.category === 'rice') return 3
-      if (n.includes('salad') || n.includes('sambharo') || n.includes('aachar') || n.includes('pickle') || item.category === 'accompaniment') return 4
-      if (n.includes('chewdo') || n.includes('mamra') || n.includes('gathiya') || n.includes('farsan') || n.includes('snack') || item.category === 'snack') return 5
-      if (n.includes('gud') || n.includes('jaggery') || n.includes('sweet') || n.includes('mithai') || item.category === 'sweet') return 6
+    // 1: Breads -> 2: Sabjis -> 3: Dal & Rice -> 4: Farsan/Snacks -> 5: Accompaniments -> 6: Sweets -> 7: Others
+    const categoryPriority = (catType: string, name: string): number => {
+      const n = name.toLowerCase()
+      if (catType === 'bread' || n.includes('rotli') || n.includes('roti') || n.includes('bhakh') || n.includes('thepla') || n.includes('puri') || n.includes('rotla')) return 1
+      if (catType === 'sabji') return 2
+      if (catType === 'rice_dal' || n.includes('dal') || n.includes('bhat') || n.includes('rice') || n.includes('kadhi')) return 3
+      if (catType === 'farsan' || n.includes('chewdo') || n.includes('mamra') || n.includes('gathiya') || n.includes('farsan') || n.includes('snack')) return 4
+      if (catType === 'accompaniment' || n.includes('salad') || n.includes('pickle') || n.includes('aachar') || n.includes('chutney')) return 5
+      if (catType === 'sweet' || n.includes('sweet') || n.includes('mithai') || n.includes('prashad')) return 6
       return 7
     }
 
     return Array.from(itemsMap.values()).sort((a, b) => {
-      const pA = categoryPriority(a)
-      const pB = categoryPriority(b)
+      const pA = categoryPriority(a.categoryType, a.name)
+      const pB = categoryPriority(b.categoryType, b.name)
       if (pA !== pB) return pA - pB
       return a.name.localeCompare(b.name)
     })
-  }, [batchDailyMenuItems, thaliComponents, foodItemByName, filteredProduction, allFoodItems])
-
-  // Helper to compute live count, unit, and subtitle for each item
-  const getItemProductionStats = (item: { name: string; category?: string }) => {
-    const n = item.name.toLowerCase()
-
-    // 1. Rotli
-    if (n.includes('rotli') || n.includes('roti') || n.includes('phulka')) {
-      const total = filteredProduction.breads.rotli.total
-      return {
-        count: total,
-        unit: 'pcs',
-        subtitle:
-          total > 0
-            ? `${filteredProduction.breads.rotli.base} base + ${filteredProduction.breads.rotli.addOn} extra`
-            : 'None ordered',
-      }
-    }
-
-    // 2. Bhakhri
-    if (n.includes('bhakhri')) {
-      const total = filteredProduction.breads.bhakhri.total
-      return {
-        count: total,
-        unit: 'pcs',
-        subtitle:
-          total > 0
-            ? `${filteredProduction.breads.bhakhri.base} base + ${filteredProduction.breads.bhakhri.addOn} extra`
-            : 'None ordered',
-      }
-    }
-
-    // 3. Other breads
-    if (n.includes('thepla')) {
-      const total = filteredProduction.breads.thepla.total
-      return { count: total, unit: 'pcs', subtitle: total > 0 ? `${total} pcs ordered` : 'None ordered' }
-    }
-    if (n.includes('puri')) {
-      const total = filteredProduction.breads.puri.total
-      return { count: total, unit: 'pcs', subtitle: total > 0 ? `${total} pcs ordered` : 'None ordered' }
-    }
-    if (n.includes('rotla')) {
-      const total = filteredProduction.breads.rotla.total
-      return { count: total, unit: 'pcs', subtitle: total > 0 ? `${total} pcs ordered` : 'None ordered' }
-    }
-
-    // 4. Sabjis (Sev-tameta, dudhi-dal, Bhinda Masala, bataka, etc.)
-    const sabjiEntry =
-      filteredProduction.sabjis[n] ||
-      Object.values(filteredProduction.sabjis).find(
-        (s) => s.name.toLowerCase() === n || n.includes(s.name.toLowerCase()) || s.name.toLowerCase().includes(n),
-      )
-
-    if (sabjiEntry) {
-      return {
-        count: sabjiEntry.totalPortions,
-        unit: 'por.',
-        subtitle:
-          sabjiEntry.addonPortions > 0
-            ? `${sabjiEntry.basePortions} base + ${sabjiEntry.addonPortions} extra`
-            : sabjiEntry.totalPortions > 0
-              ? `${sabjiEntry.totalPortions} ${sabjiEntry.totalPortions === 1 ? 'portion' : 'portions'} ordered`
-              : 'None ordered',
-      }
-    }
-    if (
-      item.category === 'sabji' ||
-      n.includes('sev') ||
-      n.includes('tameta') ||
-      n.includes('dudhi') ||
-      n.includes('bhinda') ||
-      n.includes('bataka')
-    ) {
-      return { count: 0, unit: 'por.', subtitle: 'None ordered' }
-    }
-
-    // 5. Dal & Rice (Dal-Bhat)
-    if (n.includes('dal') || n.includes('bhat') || n.includes('rice') || n.includes('kadhi')) {
-      const dalEntry =
-        filteredProduction.dalKadhiRice[n] ||
-        Object.values(filteredProduction.dalKadhiRice).find(
-          (d) => d.name.toLowerCase() === n || n.includes(d.name.toLowerCase()),
-        )
-
-      const count =
-        dalEntry?.portions ??
-        (n.includes('dal') || n.includes('bhat')
-          ? Math.max(
-            Object.values(filteredProduction.dalKadhiRice).reduce((acc, d) => acc + d.portions, 0),
-            filteredProduction.mealsWithDalRice,
-          )
-          : 0)
-
-      return {
-        count,
-        unit: 'bowls',
-        subtitle: count > 0 ? `${count} ${count === 1 ? 'bowl' : 'bowls'} ordered` : 'None ordered',
-      }
-    }
-
-    // 6. Salads / Accompaniments (Fresh Green Salad, etc.)
-    if (n.includes('salad') || n.includes('sambharo')) {
-      const salEntry =
-        filteredProduction.salads.items[n] ||
-        Object.values(filteredProduction.salads.items).find(
-          (s) => s.name.toLowerCase() === n || n.includes(s.name.toLowerCase()),
-        )
-
-      const count = salEntry?.count ?? filteredProduction.salads.totalPortions
-      return {
-        count,
-        unit: 'por.',
-        subtitle: count > 0 ? `${count} ${count === 1 ? 'portion' : 'portions'} ordered` : 'None ordered',
-      }
-    }
-
-    // 7. Snacks / Farsan (Mamra no Chewdo, etc.)
-    if (
-      n.includes('chewdo') ||
-      n.includes('mamra') ||
-      n.includes('gathiya') ||
-      n.includes('farsan') ||
-      n.includes('snack') ||
-      item.category === 'snack'
-    ) {
-      const snkEntry =
-        filteredProduction.snacksFarsan[n] ||
-        Object.values(filteredProduction.snacksFarsan).find(
-          (s) => s.name.toLowerCase() === n || n.includes(s.name.toLowerCase()),
-        )
-      const salCount = filteredProduction.salads.items[n]?.count || 0
-      const count = (snkEntry?.count || 0) + salCount
-      return {
-        count,
-        unit: 'pcs',
-        subtitle: count > 0 ? `${count} ${count === 1 ? 'item' : 'items'} ordered` : 'None ordered',
-      }
-    }
-
-    // 8. Sweets (Gud (Jaggery), etc.)
-    if (
-      n.includes('gud') ||
-      n.includes('jaggery') ||
-      n.includes('sweet') ||
-      n.includes('mithai') ||
-      item.category === 'sweet'
-    ) {
-      const swtEntry =
-        filteredProduction.sweets[n] ||
-        Object.values(filteredProduction.sweets).find(
-          (s) => s.name.toLowerCase() === n || n.includes(s.name.toLowerCase()),
-        )
-      const salCount = filteredProduction.salads.items[n]?.count || 0
-      const count = (swtEntry?.count || 0) + salCount
-      return {
-        count,
-        unit: 'pcs',
-        subtitle: count > 0 ? `${count} ${count === 1 ? 'portion' : 'portions'} ordered` : 'None ordered',
-      }
-    }
-
-    return {
-      count: 0,
-      unit: 'por.',
-      subtitle: 'None ordered',
-    }
-  }
+  }, [filteredProduction, foodItemByName])
 
   const hasActiveFilters =
     zoneFilter !== 'all' ||
@@ -740,15 +483,17 @@ export function OrdersPage() {
                     )}
                   </div>
 
-                  {/* Components snippet (e.g. 5× Rotli, Sev-tameta) */}
+                  {/* Components snippet (e.g. 2× Bhakhari, Sev-tameta) */}
                   {item.components.length > 0 && (
                     <p className="text-[11px] text-muted-foreground line-clamp-1">
                       {item.components
-                        .map((c) =>
-                          c.categoryType === 'bread' && c.quantity && c.quantity > 1
-                            ? `${c.quantity}× ${c.name}`
-                            : c.name,
-                        )
+                        .map((c) => {
+                          const canonical = foodItemByName.get(c.name.trim().toLowerCase())
+                          const displayName = canonical?.name || c.name
+                          return c.categoryType === 'bread' && c.quantity && c.quantity > 1
+                            ? `${c.quantity}× ${displayName}`
+                            : displayName
+                        })
                         .join(', ')}
                     </p>
                   )}
@@ -876,12 +621,13 @@ export function OrdersPage() {
             Kitchen Prep Sheet
             {filteredProduction.breads.totalAllBreads > 0 && (
               <span className="bg-black/20 text-white text-xs px-2 py-0.5 rounded-full font-mono">
-                {filteredProduction.breads.rotli.total > 0
-                  ? `${filteredProduction.breads.rotli.total} Rotlis${filteredProduction.breads.bhakhri.total > 0
-                    ? ` + ${filteredProduction.breads.bhakhri.total} Bhakhri`
-                    : ''
-                  }`
-                  : `${filteredProduction.breads.totalAllBreads} Breads`}
+                {filteredProduction.breads.rotli.total > 0 && filteredProduction.breads.bhakhri.total > 0
+                  ? `${filteredProduction.breads.rotli.total} Rotlis + ${filteredProduction.breads.bhakhri.total} Bhakhari`
+                  : filteredProduction.breads.rotli.total > 0
+                    ? `${filteredProduction.breads.rotli.total} ${filteredProduction.breads.rotli.total === 1 ? 'Rotli' : 'Rotlis'}`
+                    : filteredProduction.breads.bhakhri.total > 0
+                      ? `${filteredProduction.breads.bhakhri.total} ${filteredProduction.breads.bhakhri.total === 1 ? 'Bhakhari' : 'Bhakharis'}`
+                      : `${filteredProduction.breads.totalAllBreads} Breads`}
               </span>
             )}
           </Button>
@@ -963,29 +709,32 @@ export function OrdersPage() {
             </span>
           </div>
 
-          {/* Dynamic Kitchen Production Batch Cards for ALL available meal items */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-2.5 text-center sm:text-left">
-            {availableMealItems.map((item) => {
-              const stats = getItemProductionStats(item)
-              return (
+          {/* Dynamic Kitchen Production Batch Cards for items present in orders */}
+          {productionBatchItems.length === 0 ? (
+            <div className="rounded-lg bg-background/60 p-4 border border-dashed border-amber-500/25 text-center text-xs text-muted-foreground">
+              No meal components currently ordered in this production batch.
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-2.5 text-center sm:text-left">
+              {productionBatchItems.map((item) => (
                 <div
                   key={item.id || item.name}
                   className="rounded-lg bg-background/80 p-2.5 border border-amber-500/15 space-y-0.5 hover:border-amber-500/40 transition-colors shadow-2xs"
                 >
                   <p className="text-2xl font-black font-mono text-foreground tracking-tight">
-                    {stats.count}
-                    <span className="text-xs font-normal text-muted-foreground ml-1">{stats.unit}</span>
+                    {item.count}
+                    <span className="text-xs font-normal text-muted-foreground ml-1">{item.unit}</span>
                   </p>
                   <p className="text-xs font-semibold text-foreground truncate" title={item.name}>
                     {item.name}
                   </p>
-                  <p className="text-[10px] text-muted-foreground truncate" title={stats.subtitle}>
-                    {stats.subtitle}
+                  <p className="text-[10px] text-muted-foreground truncate" title={item.subtitle}>
+                    {item.subtitle}
                   </p>
                 </div>
-              )
-            })}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
