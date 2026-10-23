@@ -577,6 +577,9 @@ type ReviewRow = {
   variant_id: string | null
   order_id: string | null
   rating: number
+  food_rating?: number | null
+  packaging_rating?: number | null
+  delivery_rating?: number | null
   title: string | null
   comment: string | null
   image_urls: string[] | null

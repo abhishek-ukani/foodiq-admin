@@ -221,8 +221,8 @@ export async function fetchThaliOptionGroupsForAdminOrder(
       if (groupNameLower.includes('sabji') || groupNameLower.includes('sabzi') || groupNameLower.includes('curry') || groupNameLower.includes('subji')) {
         return catType === 'sabji' || catName.includes('sabji') || catName.includes('sabzi') || catName.includes('shaak') || catName.includes('bhaji') || itemName.includes('paneer') || itemName.includes('aloo') || itemName.includes('curry')
       }
-      if (groupNameLower.includes('roti') || groupNameLower.includes('bread') || groupNameLower.includes('bhakhri') || groupNameLower.includes('rotla') || groupNameLower.includes('puri')) {
-        return catType === 'bread' || catName.includes('bread') || catName.includes('roti') || catName.includes('bhakhri') || catName.includes('rotla') || catName.includes('puri') || itemName.includes('roti') || itemName.includes('rotli') || itemName.includes('bhakhri') || itemName.includes('paratha')
+      if (groupNameLower.includes('roti') || groupNameLower.includes('bread') || groupNameLower.includes('bhakhri') || groupNameLower.includes('bhakhari') || groupNameLower.includes('rotla') || groupNameLower.includes('puri')) {
+        return catType === 'bread' || catName.includes('bread') || catName.includes('roti') || catName.includes('bhakhri') || catName.includes('bhakhari') || catName.includes('rotla') || catName.includes('puri') || itemName.includes('roti') || itemName.includes('rotli') || itemName.includes('bhakhri') || itemName.includes('bhakhari') || itemName.includes('paratha')
       }
       if (groupNameLower.includes('sweet') || groupNameLower.includes('mithai') || groupNameLower.includes('dessert')) {
         return catType === 'sweet' || catName.includes('sweet') || catName.includes('dessert') || catName.includes('mithai') || itemName.includes('halwa') || itemName.includes('shrikhand')

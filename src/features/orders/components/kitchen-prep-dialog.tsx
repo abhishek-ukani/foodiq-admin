@@ -410,10 +410,10 @@ export function KitchenPrepDialog({
                     </div>
                   </div>
 
-                  {/* Bhakhri Card */}
+                  {/* Bhakhari Card */}
                   <div className="rounded-lg border bg-background p-3 space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="font-semibold text-sm">Bhakhri</span>
+                      <span className="font-semibold text-sm">Bhakhari</span>
                       <span className="text-lg font-bold font-mono">
                         {production.breads.bhakhri.total} pcs
                       </span>

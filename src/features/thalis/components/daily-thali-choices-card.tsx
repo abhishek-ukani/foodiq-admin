@@ -117,7 +117,8 @@ export function mapItemToThaliSection(
     catName.includes('rotla') ||
     catName.includes('bread') ||
     catName.includes('puri') ||
-    catName.includes('bhakhri')
+    catName.includes('bhakhri') ||
+    catName.includes('bhakhari')
   ) {
     return 'bread'
   }
@@ -182,6 +183,7 @@ export function mapItemToThaliSection(
     itemName.includes('rotla') ||
     itemName.includes('puri') ||
     itemName.includes('bhakhri') ||
+    itemName.includes('bhakhari') ||
     itemName.includes('paratha')
   ) {
     return 'bread'

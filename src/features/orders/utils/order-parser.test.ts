@@ -324,4 +324,68 @@ describe('order-parser: Kitchen Production & Order Accuracy', () => {
     // Snacks count strictly matches 2 portions of Khaman
     expect(production.snacksFarsan['khaman (250g)']?.count).toBe(2)
   })
+
+  it('correctly attributes Bhakhari when user selects Bhakhari (not Rotli)', () => {
+    // Order replicating user screenshot: Classic Thali with Bhakhari (spelled Bhakhari)
+    const userOrder: AdminOrder = {
+      id: 'ord-user-bhakhari',
+      order_number: 'FIQ-THL-L261023-2796',
+      status: 'accepted',
+      meal_type: 'lunch',
+      delivery_date: '2026-10-23',
+      subtotal: 125,
+      total_amount: 125,
+      contact_name: 'Admin',
+      order_items: [
+        {
+          id: 'item-user-1',
+          order_id: 'ord-user-bhakhari',
+          item_name: 'Classic Thali',
+          item_kind: 'thali',
+          unit_price: 125,
+          quantity: 1,
+          line_total: 125,
+          item_snapshot: [
+            { name: 'Dal-Bhat', category: 'rice_dal', quantity: 1 },
+            { name: 'Bhakhari', category: 'bread', quantity: 1 },
+            { name: 'Bhinda Masala', category: 'sabji', quantity: 1 },
+            { name: 'Aachar (Pickle)', category: 'salad_pickle', quantity: 1 },
+            { name: 'Mamra no Chewdo', category: 'farsan', quantity: 1 },
+          ],
+          customizations: [
+            { group_name: 'Bread Choice', option_name: 'Bhakhari', price_delta: 0 },
+            { group_name: 'Sabji Choice', option_name: 'Bhinda Masala', price_delta: 0 },
+          ],
+        } as any,
+      ],
+    } as any
+
+    const parsed = parseOrderItemDetails(userOrder.order_items[0])
+    expect(parsed.breadType).toBe('bhakhri')
+    expect(parsed.baseBreadCount).toBe(2) // 2 pcs Bhakhari, NOT 5!
+
+    const production = calculateKitchenProduction([userOrder])
+
+    // Rotli must be 0!
+    expect(production.breads.rotli.base).toBe(0)
+    expect(production.breads.rotli.total).toBe(0)
+
+    // Bhakhri must be 2
+    expect(production.breads.bhakhri.base).toBe(2)
+    expect(production.breads.bhakhri.total).toBe(2)
+
+    // Direct food items mapping in production.foodItems
+    const bhakhariItem = Object.values(production.foodItems).find(
+      (item) => item.name.toLowerCase().includes('bhakh')
+    )
+    expect(bhakhariItem).toBeDefined()
+    expect(bhakhariItem?.totalCount).toBe(2)
+    expect(bhakhariItem?.baseCount).toBe(2)
+    expect(bhakhariItem?.unit).toBe('pcs')
+
+    // Unordered items must NOT exist in production.foodItems
+    expect(production.foodItems['sev-tameta']).toBeUndefined()
+    expect(production.foodItems['chhash']).toBeUndefined()
+    expect(production.foodItems['mahaprashad']).toBeUndefined()
+  })
 })

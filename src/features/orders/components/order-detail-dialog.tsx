@@ -353,7 +353,7 @@ export function OrderDetailDialog({
                           {item.categoryKind === 'meal' && (
                             <Badge variant="outline" className="text-[10px] font-mono font-semibold bg-amber-500/10 text-amber-800 dark:text-amber-300 border-amber-500/30 gap-1">
                               <Wheat className="size-2.5 text-amber-600" />
-                              {item.totalBreadCount} pcs {item.breadType === 'bhakhri' ? 'Bhakhri' : 'Rotli'}
+                              {item.totalBreadCount} pcs {item.breadType === 'bhakhri' || item.breadType === 'bhakhari' ? 'Bhakhari' : item.breadType === 'thepla' ? 'Thepla' : item.breadType === 'puri' ? 'Puri' : item.breadType === 'rotla' ? 'Rotla' : 'Rotli'}
                               {item.addonBreadCount > 0 ? ` (${item.baseBreadCount} base + ${item.addonBreadCount} extra)` : ''}
                             </Badge>
                           )}
@@ -480,7 +480,7 @@ export function OrderDetailDialog({
                     <p className="text-[10px] text-muted-foreground truncate">
                       {orderProduction.breads.rotli.total > 0 && `${orderProduction.breads.rotli.total} Rotli`}
                       {orderProduction.breads.rotli.total > 0 && orderProduction.breads.bhakhri.total > 0 && ' · '}
-                      {orderProduction.breads.bhakhri.total > 0 && `${orderProduction.breads.bhakhri.total} Bhakhri`}
+                      {orderProduction.breads.bhakhri.total > 0 && `${orderProduction.breads.bhakhri.total} Bhakhari`}
                     </p>
                   </div>
 
