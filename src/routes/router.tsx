@@ -36,6 +36,11 @@ const StoreProductsPage = lazy(() =>
 const OrdersPage = lazy(() =>
   import('@/features/orders/components/orders-page').then((m) => ({ default: m.OrdersPage })),
 )
+const SubscriptionsPage = lazy(() =>
+  import('@/features/subscriptions/components/subscriptions-page').then((m) => ({
+    default: m.SubscriptionsPage,
+  })),
+)
 const KitchenCalculatorPage = lazy(() =>
   import('@/features/kitchen-calculator/components/kitchen-calculator-page').then((m) => ({
     default: m.KitchenCalculatorPage,
@@ -99,6 +104,7 @@ export const router = createBrowserRouter([
       { path: ADMIN_ROUTES.thalis, element: withSuspense(<ThaliCustomizationPage />) },
       { path: ADMIN_ROUTES.storeProducts, element: withSuspense(<StoreProductsPage />) },
       { path: ADMIN_ROUTES.orders, element: withSuspense(<OrdersPage />) },
+      { path: ADMIN_ROUTES.subscriptions, element: withSuspense(<SubscriptionsPage />) },
       { path: ADMIN_ROUTES.kitchenCalculator, element: withSuspense(<KitchenCalculatorPage />) },
       { path: ADMIN_ROUTES.expenses, element: withSuspense(<ExpensesPage />) },
       { path: ADMIN_ROUTES.settings, element: withSuspense(<SettingsPage />) },

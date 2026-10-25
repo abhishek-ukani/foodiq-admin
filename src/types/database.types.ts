@@ -1,6 +1,13 @@
 /**
  * Mirrors the SQL under `supabase/migrations`. Regenerate after schema changes:
  *   npx supabase gen types typescript --project-id <id> > src/types/database.types.ts
+ *
+ * If you get an Insert-type error for a column that has a SQL default (e.g.
+ * `is_active boolean not null default true`), add it as `TableOf<Row, 'that_column'>`
+ * for that table specifically — NOT to the global `Generated` list. Column
+ * names repeat across tables with different defaultedness (`quantity` defaults
+ * on cart_items but is required on order_items), so a global list would
+ * silently make the wrong tables' required fields optional.
  */
 
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
@@ -32,6 +39,10 @@ export type UnitType = 'gm' | 'kg' | 'pc' | 'ml' | 'ltr'
 export type StockStatus = 'IN_STOCK' | 'FEW_LEFT' | 'OUT_OF_STOCK'
 export type SupplierStatus = 'ACTIVE' | 'INACTIVE' | 'BLOCKED'
 export type PoStatus = 'DRAFT' | 'ORDERED' | 'PARTIALLY_RECEIVED' | 'RECEIVED' | 'CANCELLED'
+export type SubscriptionPlanType = 'standard' | 'custom'
+export type SubscriptionStatus = 'pending_payment' | 'active' | 'completed' | 'cancelled'
+export type SubscriptionDayStatus = 'scheduled' | 'delivered' | 'skipped' | 'kitchen_cancelled'
+export type PlanEnquiryStatus = 'new' | 'in_progress' | 'resolved' | 'closed'
 
 type BranchRow = {
   id: string
@@ -107,6 +118,7 @@ type DeliveryRoadRow = {
   created_at: string
 }
 
+/** delivery_zones — pre-classified localities for Kathiyawadi Kitchen. */
 type DeliveryZoneRow = {
   id: number
   name: string
@@ -117,6 +129,7 @@ type DeliveryZoneRow = {
   created_at: string
 }
 
+/** delivery_fee_rules — distance-based fee tiers, fallback when no zone matches. */
 type DeliveryFeeRuleRow = {
   id: number
   min_distance_km: number
@@ -182,7 +195,7 @@ type CategoryRow = {
   updated_at: string
 }
 
-type FoodItemRow = {
+export type FoodItemRow = {
   id: string
   branch_id: string
   category_id: string | null
@@ -272,6 +285,126 @@ type ThaliComponentRow = {
   updated_at: string
 }
 
+export type PlanVariantRow = {
+  id: string
+  name: string
+  slug: string
+  short_description: string
+  who_it_is_for: string
+  badge_text: string | null
+  display_order: number
+  is_active: boolean
+  duration_meal_days: number
+  schedule_type: 'weekdays_selection' | 'every_other_day'
+  delivery_days: number[]
+  discount_percentage: number
+  skip_limit: number
+  has_weekly_sweet: boolean
+  meal_slots_allowed: string[]
+  renewal_reminder_threshold: number
+  created_at: string
+  updated_at: string
+}
+
+export type SubscriptionSettingsRow = {
+  id: string
+  lunch_skip_cutoff_time: string
+  dinner_skip_cutoff_time: string
+  min_lead_days: number
+  max_start_lead_days: number
+  allow_undo_skip: boolean
+  allow_skip_on_last_day: boolean
+  default_meal_thali_id: string | null
+  sweet_food_item_id: string | null
+  sweet_weekday_rule: string
+  contact_whatsapp_number: string
+  updated_at: string
+  updated_by: string | null
+}
+
+export type KitchenClosedDateRow = {
+  id: string
+  closed_date: string
+  reason: string | null
+  created_by: string | null
+  created_at: string
+}
+
+export type SubscriptionRow = {
+  id: string
+  subscription_number: string
+  user_id: string
+  plan_variant_id: string
+  meal_thali_id: string | null
+  thali_snapshot: Json | null
+  plan_type: SubscriptionPlanType
+  custom_template: Json | null
+  status: SubscriptionStatus
+  meal_slot: 'lunch' | 'dinner' | 'both'
+  delivery_slot_id: string | null
+  address_id: string
+  start_date: string
+  duration_meal_days: number
+  per_day_price: number
+  original_price: number
+  discount_percentage: number
+  discount_amount: number
+  final_price_paid: number
+  skip_limit: number
+  has_weekly_sweet: boolean
+  schedule_type: string
+  delivery_days: number[]
+  variant_snapshot: Json
+  address_snapshot: Json
+  renewal_reminder_threshold: number
+  payment_method: string
+  payment_reference: string | null
+  payment_status: string
+  payment_notes: string | null
+  confirmed_at: string | null
+  confirmed_by: string | null
+  cancelled_at: string | null
+  cancellation_reason: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type SubscriptionDayRow = {
+  id: string
+  subscription_id: string
+  user_id: string
+  delivery_date: string
+  meal_slot: string
+  sequence_number: number
+  meal_thali_id: string | null
+  status: SubscriptionDayStatus
+  includes_sweet: boolean
+  sweet_food_item_id: string | null
+  order_id: string | null
+  skipped_at: string | null
+  cancelled_at: string | null
+  delivered_at: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type PlanEnquiryRow = {
+  id: string
+  user_id: string | null
+  enquiry_type: string
+  headcount: number | null
+  days_per_week: number | null
+  area_or_office: string
+  phone: string
+  contact_name: string | null
+  message: string | null
+  status: PlanEnquiryStatus
+  admin_notes: string | null
+  created_at: string
+  updated_at: string
+}
+
 type SubscriptionPlanRow = {
   id: string
   branch_id: string | null
@@ -316,6 +449,7 @@ type SubscriptionDailyDeliveryRow = {
   customized_at: string | null
   created_at: string
 }
+
 
 type ItemCustomizationRow = {
   id: string
@@ -521,6 +655,7 @@ type OrderRow = {
   dispatched_at: string | null
   delivered_at: string | null
   cancelled_at: string | null
+  subscription_day_id: string | null
   assigned_to: string | null
   created_at: string
   updated_at: string
@@ -686,7 +821,7 @@ type SystemConfigRow = {
   updated_at: string
 }
 
-type AuditLogRow = {
+export type AuditLogRow = {
   id: string
   actor_id: string | null
   actor_email: string | null
@@ -717,6 +852,12 @@ type Generated =
 /** Nullable columns are optional on insert too — omitting them just inserts NULL. */
 type NullableKeyOf<T> = { [K in keyof T]: null extends T[K] ? K : never }[keyof T]
 
+/**
+ * `ExtraOptional` covers same-named columns that are NOT safe to treat as
+ * globally optional — e.g. `quantity` defaults on `cart_items` but is
+ * required on `order_items`. Pass the table-specific defaulted columns here
+ * rather than adding them to `Generated`.
+ */
 type OptionalOnInsert<T, ExtraOptional extends keyof T = never> =
   | Extract<keyof T, Generated>
   | NullableKeyOf<T>
@@ -766,6 +907,18 @@ export interface Database {
       thali_option_groups: TableOf<ThaliOptionGroupRow, 'min_select' | 'max_select' | 'is_required' | 'display_order' | 'is_active'>
       thali_option_items: TableOf<ThaliOptionItemRow, 'price_delta' | 'is_default' | 'display_order' | 'is_active'>
       thali_components: TableOf<ThaliComponentRow, 'is_active' | 'display_order'>
+      plan_variants: TableOf<
+        PlanVariantRow,
+        'display_order' | 'is_active' | 'discount_percentage' | 'skip_limit' | 'has_weekly_sweet' | 'meal_slots_allowed' | 'renewal_reminder_threshold'
+      >
+      subscription_settings: TableOf<SubscriptionSettingsRow>
+      kitchen_closed_dates: TableOf<KitchenClosedDateRow>
+      subscriptions: TableOf<
+        SubscriptionRow,
+        'status' | 'plan_type' | 'renewal_reminder_threshold' | 'payment_method' | 'payment_status'
+      >
+      subscription_days: TableOf<SubscriptionDayRow, 'status' | 'includes_sweet'>
+      plan_enquiries: TableOf<PlanEnquiryRow, 'status'>
       subscription_plans: TableOf<SubscriptionPlanRow, 'discount_percentage' | 'is_active'>
       user_subscriptions: TableOf<UserSubscriptionRow, 'status'>
       subscription_daily_deliveries: TableOf<SubscriptionDailyDeliveryRow, 'status'>
@@ -802,8 +955,68 @@ export interface Database {
           p_payment_method: PaymentMethod
           p_special_instructions?: string | null
           p_payment_reference?: string | null
+          /** Resolved delivery fee in INR from the resolve-delivery Edge Function. */
+          p_delivery_charge?: number
+          /** zone_type string from resolve-delivery (informational; stored for analytics). */
+          p_zone_type?: string | null
         }
         Returns: OrderRow
+      }
+      get_subscription_quote: {
+        Args: {
+          p_variant_id: string
+          p_meal_slot: string
+        }
+        Returns: Json
+      }
+      create_subscription: {
+        Args: {
+          p_variant_id: string
+          p_meal_slot: string
+          p_start_date: string
+          p_address_id: string
+          p_delivery_slot_id?: string | null
+          p_payment_method?: string
+        }
+        Returns: Json
+      }
+      skip_day: {
+        Args: {
+          p_subscription_day_id: string
+        }
+        Returns: Json
+      }
+      undo_skip: {
+        Args: {
+          p_subscription_day_id: string
+        }
+        Returns: Json
+      }
+      admin_close_date: {
+        Args: {
+          p_closed_date: string
+          p_reason?: string | null
+        }
+        Returns: Json
+      }
+      admin_reopen_date: {
+        Args: {
+          p_closed_date: string
+        }
+        Returns: Json
+      }
+      admin_confirm_payment: {
+        Args: {
+          p_subscription_id: string
+          p_payment_notes?: string | null
+        }
+        Returns: Json
+      }
+      generate_daily_orders: {
+        Args: {
+          p_target_date?: string | null
+        }
+        Returns: Json
       }
       reorder: {
         Args: { p_order_id: string }

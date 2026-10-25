@@ -237,7 +237,7 @@ export function HolidaysTab() {
               <CardTitle className="text-xl">Kitchen Holidays &amp; Closure Updates</CardTitle>
             </div>
             <CardDescription className="mt-1">
-              Inform customers when the kitchen is closed for a single day or an extended date range (e.g. Diwali vacation, festival holidays, or deep cleaning).
+              Inform customers when the kitchen is closed for a single day or an extended date range (e.g. Diwali vacation, festival holidays, or deep cleaning). Active holidays automatically pause deliveries and extend all subscriber meal plans without penalty.
             </CardDescription>
           </div>
 

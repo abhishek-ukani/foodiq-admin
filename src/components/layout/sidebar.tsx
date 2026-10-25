@@ -15,6 +15,7 @@ import {
   Store,
   Scale,
   Receipt,
+  CalendarCheck,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ADMIN_ROUTES } from '@/constants'
@@ -23,6 +24,7 @@ import { ADMIN_ROUTES } from '@/constants'
 export const NAV_ITEMS = [
   { to: ADMIN_ROUTES.dashboard, label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: ADMIN_ROUTES.orders, label: 'Orders', icon: ShoppingBag, end: false },
+  { to: ADMIN_ROUTES.subscriptions, label: 'Subscriptions', icon: CalendarCheck, end: false },
   { to: ADMIN_ROUTES.kitchenCalculator, label: 'Quantity Calculator', icon: Scale, end: false },
   { to: ADMIN_ROUTES.expenses, label: 'Kitchen Expenses', icon: Receipt, end: false },
   { to: ADMIN_ROUTES.categories, label: 'Categories', icon: Tag, end: false },

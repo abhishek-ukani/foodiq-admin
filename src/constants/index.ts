@@ -6,6 +6,7 @@ export const ADMIN_ROUTES = {
   resetPassword: '/reset-password',
   dashboard: '/',
   orders: '/orders',
+  subscriptions: '/subscriptions',
   kitchenCalculator: '/kitchen-calculator',
   expenses: '/expenses',
   dailyMenu: '/menu/daily',
