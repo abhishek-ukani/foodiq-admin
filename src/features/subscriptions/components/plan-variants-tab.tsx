@@ -134,7 +134,7 @@ export function PlanVariantsTab() {
                   </div>
                   <div className="flex items-center gap-2 text-emerald-700 font-medium">
                     <Sparkles className="size-4 shrink-0 text-emerald-600" />
-                    <span>Complimentary add-ons included in every meal</span>
+                    <span>Complimentary snack included in every meal 🥟</span>
                   </div>
                   {variant.has_weekly_sweet ? (
                     <div className="flex items-center gap-2 text-amber-700 font-medium">

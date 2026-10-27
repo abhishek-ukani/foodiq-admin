@@ -364,12 +364,12 @@ export function PlanVariantFormDialog({
               </div>
             </div>
 
-            {/* Complimentary Add-ons in Plans Info */}
+            {/* Complimentary Snack in Plans Info */}
             <div className="flex items-start gap-2.5 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-800 dark:text-emerald-300">
               <Sparkles className="size-4 shrink-0 mt-0.5 text-emerald-600" />
               <div>
-                <span className="font-semibold">Complimentary Add-ons: </span>
-                All plans automatically provide complimentary daily add-ons (Fresh Salad, Homemade Pickle &amp; Chutney) with every thali. Snacks/farsan are optional retail add-ons.
+                <span className="font-semibold">Complimentary Snack Included: </span>
+                All plans automatically provide a complimentary daily snack (Farsan / Fryums) with every thali.
               </div>
             </div>
 

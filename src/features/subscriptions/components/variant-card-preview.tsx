@@ -87,7 +87,7 @@ export function VariantCardPreview({ variant }: VariantCardPreviewProps) {
             </li>
             <li className="flex items-start gap-2 text-emerald-700 font-medium">
               <Sparkles className="size-4 shrink-0 text-emerald-600 mt-0.5" />
-              <span>Complimentary add-ons included in every meal (Salad &amp; Pickle)</span>
+              <span>Complimentary snack included in every meal (Farsan) 🥟</span>
             </li>
             {hasSweet ? (
               <li className="flex items-start gap-2 text-amber-700 font-medium">

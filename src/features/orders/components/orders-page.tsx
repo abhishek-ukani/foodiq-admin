@@ -29,9 +29,6 @@ import { OrderPrintDialog } from '@/features/orders/components/order-print-dialo
 import { useOrders, useUpdateOrderStatus } from '@/features/orders/hooks/use-orders'
 import { useDeliveryZones } from '@/features/settings/hooks/use-delivery'
 import { useFoodItems } from '@/features/food-items/hooks/use-food-items'
-import { useThaliComponents } from '@/features/thalis/services/thali-components-service'
-import { useQuery } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabase'
 import type { AdminOrder } from '@/features/orders/services/orders-service'
 import {
   calculateKitchenProduction,
@@ -269,35 +266,9 @@ export function OrdersPage() {
     return calculateKitchenProduction(productionOrders)
   }, [productionOrders])
 
-  // Active date for batch meals query
-  const activeBatchDate =
-    dateMode === 'today'
-      ? todayStr
-      : dateMode === 'tomorrow'
-        ? tomorrowStr
-        : dateMode === 'custom'
-          ? customDate
-          : todayStr
 
-  // Query daily menu items for the batch date (to identify all items from meals available for sale)
-  const { data: batchDailyMenuItems } = useQuery({
-    queryKey: ['admin', 'batch-daily-menu-items', activeBatchDate],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('daily_menu_items')
-        .select('*, food_items(*, categories(*)), daily_menus!inner(menu_date, is_published, meal_type)')
-        .eq('daily_menus.menu_date', activeBatchDate)
-        .eq('is_available', true)
-      if (error) {
-        console.warn('Could not fetch daily menu items for batch:', error)
-        return []
-      }
-      return data || []
-    },
-  })
 
   const { data: allFoodItems } = useFoodItems()
-  const { data: thaliComponents } = useThaliComponents()
 
   // Map of canonical food_items from the database table (direct 1-to-1 link)
   const foodItemByName = useMemo(() => {
