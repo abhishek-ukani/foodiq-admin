@@ -13,9 +13,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { CategoryIcon } from './category-icon'
-import type { ExpenseCategory, ExpenseRecord, PaymentMethod, ExpenseSpender } from '../types'
+import type { ExpenseCategory, ExpenseRecord, PaymentMethod, ExpenseSpender, ExpenseType } from '../types'
 import { CURRENCY_SYMBOL } from '@/constants'
-import { Receipt, Banknote, QrCode, CreditCard, Building, UserCheck, Check } from 'lucide-react'
+import { Receipt, Banknote, QrCode, CreditCard, Building, UserCheck, Check, ChefHat, User } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface ExpenseFormDialogProps {
@@ -24,6 +24,7 @@ interface ExpenseFormDialogProps {
   expenseToEdit: ExpenseRecord | null
   categories: ExpenseCategory[]
   spenders: ExpenseSpender[]
+  defaultExpenseType?: ExpenseType
   onSave: (expense: Omit<ExpenseRecord, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }) => void
 }
 
@@ -38,6 +39,7 @@ interface InnerFormProps {
   expenseToEdit: ExpenseRecord | null
   categories: ExpenseCategory[]
   spenders: ExpenseSpender[]
+  defaultExpenseType?: ExpenseType
   onCancel: () => void
   onSubmitSuccess: (data: Omit<ExpenseRecord, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }) => void
 }
@@ -46,17 +48,43 @@ function InnerExpenseForm({
   expenseToEdit,
   categories,
   spenders,
+  defaultExpenseType = 'kitchen',
   onCancel,
   onSubmitSuccess,
 }: InnerFormProps) {
+  const [expenseType, setExpenseType] = useState<ExpenseType>(
+    expenseToEdit?.expenseType || defaultExpenseType,
+  )
   const [title, setTitle] = useState(expenseToEdit?.title || '')
   const [amount, setAmount] = useState(expenseToEdit ? String(expenseToEdit.amount) : '')
-  const [categoryId, setCategoryId] = useState(expenseToEdit?.categoryId || categories[0]?.id || '')
+
+  // Filter categories by selected scope
+  const filteredCategories = categories.filter(
+    (c) => !c.scope || c.scope === 'both' || c.scope === expenseType,
+  )
+
+  const [categoryId, setCategoryId] = useState(() => {
+    if (expenseToEdit?.categoryId) return expenseToEdit.categoryId
+    const initialMatching = categories.filter(
+      (c) => !c.scope || c.scope === 'both' || c.scope === (expenseToEdit?.expenseType || defaultExpenseType),
+    )
+    return initialMatching[0]?.id || categories[0]?.id || ''
+  })
+
   const [spentById, setSpentById] = useState(expenseToEdit?.spentById || spenders[0]?.id || '')
   const [date, setDate] = useState(expenseToEdit?.date || dayjs().format('YYYY-MM-DD'))
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(expenseToEdit?.paymentMethod || 'cash')
   const [vendor, setVendor] = useState(expenseToEdit?.vendor || '')
   const [notes, setNotes] = useState(expenseToEdit?.notes || '')
+
+  const handleTypeChange = (newType: ExpenseType) => {
+    setExpenseType(newType)
+    // Adjust category selection if current category doesn't match new type
+    const newMatching = categories.filter((c) => !c.scope || c.scope === 'both' || c.scope === newType)
+    if (!newMatching.some((c) => c.id === categoryId)) {
+      setCategoryId(newMatching[0]?.id || '')
+    }
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -81,6 +109,7 @@ function InnerExpenseForm({
 
     onSubmitSuccess({
       id: expenseToEdit?.id,
+      expenseType,
       title: title.trim(),
       amount: parsedAmount,
       categoryId,
@@ -92,11 +121,54 @@ function InnerExpenseForm({
       notes: notes.trim() || undefined,
     })
 
-    toast.success(expenseToEdit ? 'Expense updated' : 'Expense recorded successfully')
+    toast.success(
+      expenseToEdit
+        ? 'Expense updated'
+        : expenseType === 'personal'
+          ? 'Personal expense recorded'
+          : 'Kitchen expense recorded',
+    )
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 pt-2">
+      {/* 0. Expense Type Segmented Selector */}
+      <div className="space-y-1.5">
+        <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+          Expense Type *
+        </Label>
+        <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-muted/60 border">
+          <button
+            type="button"
+            onClick={() => handleTypeChange('kitchen')}
+            className={`flex min-h-[44px] items-center justify-center gap-2 rounded-lg text-xs font-semibold transition-all ${
+              expenseType === 'kitchen'
+                ? 'bg-card text-primary shadow-xs border border-primary/20 ring-1 ring-primary/20'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
+            }`}
+          >
+            <ChefHat className="size-4" />
+            <span>Kitchen Expense</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => handleTypeChange('personal')}
+            className={`flex min-h-[44px] items-center justify-center gap-2 rounded-lg text-xs font-semibold transition-all ${
+              expenseType === 'personal'
+                ? 'bg-card text-purple-600 dark:text-purple-400 shadow-xs border border-purple-500/20 ring-1 ring-purple-500/20'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
+            }`}
+          >
+            <User className="size-4" />
+            <span>Personal & Family</span>
+          </button>
+        </div>
+        <p className="text-[11px] text-muted-foreground">
+          {expenseType === 'kitchen'
+            ? 'Counted strictly in commercial kitchen food costs, supplies & overheads.'
+            : 'Tracked for family/individual reference; excluded from kitchen food cost calculations.'}
+        </p>
+      </div>
       {/* 1. Who spent it? Super User / Family Member Selection */}
       {spenders.length > 0 && (
         <div className="space-y-1.5 rounded-xl border bg-muted/20 p-3">
@@ -181,29 +253,35 @@ function InnerExpenseForm({
           Category *
         </Label>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-44 overflow-y-auto pr-1">
-          {categories.map((cat) => {
-            const isSelected = categoryId === cat.id
-            return (
-              <button
-                key={cat.id}
-                type="button"
-                onClick={() => setCategoryId(cat.id)}
-                className={`flex min-h-[44px] items-center gap-2.5 rounded-xl border px-3 py-2 text-left text-xs font-medium transition-all ${
-                  isSelected
-                    ? 'border-primary bg-primary/10 text-primary ring-2 ring-primary/20 shadow-xs'
-                    : 'border-border bg-card hover:bg-muted text-foreground'
-                }`}
-              >
-                <span
-                  className="flex size-6 shrink-0 items-center justify-center rounded-md text-white text-xs"
-                  style={{ backgroundColor: cat.color }}
+          {filteredCategories.length === 0 ? (
+            <div className="col-span-2 sm:col-span-3 text-center py-4 text-xs text-muted-foreground border rounded-xl border-dashed">
+              No categories found for this expense type.
+            </div>
+          ) : (
+            filteredCategories.map((cat) => {
+              const isSelected = categoryId === cat.id
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => setCategoryId(cat.id)}
+                  className={`flex min-h-[44px] items-center gap-2.5 rounded-xl border px-3 py-2 text-left text-xs font-medium transition-all ${
+                    isSelected
+                      ? 'border-primary bg-primary/10 text-primary ring-2 ring-primary/20 shadow-xs'
+                      : 'border-border bg-card hover:bg-muted text-foreground'
+                  }`}
                 >
-                  <CategoryIcon name={cat.iconName} className="size-3.5" />
-                </span>
-                <span className="truncate">{cat.name}</span>
-              </button>
-            )
-          })}
+                  <span
+                    className="flex size-6 shrink-0 items-center justify-center rounded-md text-white text-xs"
+                    style={{ backgroundColor: cat.color }}
+                  >
+                    <CategoryIcon name={cat.iconName} className="size-3.5" />
+                  </span>
+                  <span className="truncate">{cat.name}</span>
+                </button>
+              )
+            })
+          )}
         </div>
       </div>
 
@@ -214,7 +292,11 @@ function InnerExpenseForm({
           id="expense-title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="e.g. 50kg Onion sack, HP Petrol refill, 2x Kadai"
+          placeholder={
+            expenseType === 'kitchen'
+              ? 'e.g. 50kg Onion sack, HP Petrol refill, 2x Kadai'
+              : 'e.g. Family dinner, Clothes shopping, Medicine, Home Wi-Fi'
+          }
           className="h-11 text-base sm:text-sm"
         />
       </div>
@@ -233,12 +315,16 @@ function InnerExpenseForm({
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="expense-vendor">Vendor / Merchant</Label>
+          <Label htmlFor="expense-vendor">Vendor / Merchant / Store</Label>
           <Input
             id="expense-vendor"
             value={vendor}
             onChange={(e) => setVendor(e.target.value)}
-            placeholder="e.g. APMC Mandi, Bharat Petroleum"
+            placeholder={
+              expenseType === 'kitchen'
+                ? 'e.g. APMC Mandi, Bharat Petroleum'
+                : 'e.g. Zudio, Local Pharmacy, Swiggy, DMart'
+            }
             className="h-11 text-base sm:text-sm"
           />
         </div>
@@ -279,7 +365,7 @@ function InnerExpenseForm({
           id="expense-notes"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          placeholder="Any additional details, invoice ref number, or batch info..."
+          placeholder="Any additional details, invoice ref number, or note..."
           rows={2}
           className="resize-none"
         />
@@ -308,6 +394,7 @@ export function ExpenseFormDialog({
   expenseToEdit,
   categories,
   spenders,
+  defaultExpenseType = 'kitchen',
   onSave,
 }: ExpenseFormDialogProps) {
   return (
@@ -315,15 +402,19 @@ export function ExpenseFormDialog({
       <DialogContent className="w-[calc(100%-2rem)] sm:max-w-xl md:max-w-2xl max-h-[92vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6">
         <DialogHeader className="pr-6">
           <div className="flex items-center gap-2">
-            <div className="flex size-9 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+            <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
               <Receipt className="size-5" />
             </div>
             <div>
               <DialogTitle className="text-xl font-semibold">
-                {expenseToEdit ? 'Edit Kitchen Expense' : 'Log Kitchen Expense'}
+                {expenseToEdit
+                  ? (expenseToEdit.expenseType || 'kitchen') === 'personal'
+                    ? 'Edit Personal Expense'
+                    : 'Edit Kitchen Expense'
+                  : 'Log Expense Record'}
               </DialogTitle>
               <DialogDescription className="text-sm">
-                Record kitchen purchases, mandi runs, fuel, and overheads.
+                Record kitchen operational costs or personal family expenses.
               </DialogDescription>
             </div>
           </div>
@@ -331,10 +422,11 @@ export function ExpenseFormDialog({
 
         {open && (
           <InnerExpenseForm
-            key={expenseToEdit?.id ?? 'new-expense'}
+            key={expenseToEdit?.id ?? `new-expense-${defaultExpenseType}`}
             expenseToEdit={expenseToEdit}
             categories={categories}
             spenders={spenders}
+            defaultExpenseType={defaultExpenseType}
             onCancel={() => onOpenChange(false)}
             onSubmitSuccess={(data) => {
               onSave(data)

@@ -10,6 +10,7 @@ interface CategoryBreakdownChartProps {
   data: CategoryBreakdown[]
   totalAmount: number
   selectedCategory: string
+  scope?: 'kitchen' | 'personal' | 'combined'
   onSelectCategory: (categoryId: string) => void
 }
 
@@ -17,6 +18,7 @@ export function CategoryBreakdownChart({
   data,
   totalAmount,
   selectedCategory,
+  scope = 'kitchen',
   onSelectCategory,
 }: CategoryBreakdownChartProps) {
   const chartData = useMemo(() => {
@@ -29,6 +31,13 @@ export function CategoryBreakdownChart({
     }))
   }, [data])
 
+  const subtitle =
+    scope === 'personal'
+      ? 'Visual breakdown of personal and family expenses by category. Click to filter.'
+      : scope === 'combined'
+        ? 'Combined distribution across both kitchen and personal categories. Click to filter.'
+        : 'Interactive breakdown of kitchen overheads. Click a category to filter.'
+
   if (data.length === 0) {
     return (
       <Card className="shadow-xs">
@@ -38,7 +47,7 @@ export function CategoryBreakdownChart({
             <CardTitle className="text-base font-semibold">Category-wise Distribution</CardTitle>
           </div>
           <CardDescription className="text-xs">
-            Visual breakdown of all kitchen expenses by category.
+            {subtitle}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -66,7 +75,7 @@ export function CategoryBreakdownChart({
           </span>
         </div>
         <CardDescription className="text-xs">
-          Interactive breakdown of kitchen overheads. Click a category to filter.
+          {subtitle}
         </CardDescription>
       </CardHeader>
 

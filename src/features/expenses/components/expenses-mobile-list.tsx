@@ -9,6 +9,7 @@ import { Edit2, Trash2, Store, Calendar, FileText, Banknote, QrCode, CreditCard,
 interface ExpensesMobileListProps {
   expenses: ExpenseRecord[]
   categories: ExpenseCategory[]
+  showTypeBadge?: boolean
   onEdit: (expense: ExpenseRecord) => void
   onDelete: (id: string) => void
 }
@@ -23,6 +24,7 @@ const PAYMENT_ICON_MAP = {
 export function ExpensesMobileList({
   expenses,
   categories,
+  showTypeBadge = false,
   onEdit,
   onDelete,
 }: ExpensesMobileListProps) {
@@ -44,21 +46,36 @@ export function ExpensesMobileList({
       {expenses.map((expense) => {
         const cat = catMap.get(expense.categoryId)
         const PayIcon = PAYMENT_ICON_MAP[expense.paymentMethod] || Banknote
+        const isPersonal = (expense.expenseType || 'kitchen') === 'personal'
 
         return (
           <div
             key={expense.id}
             className="rounded-2xl border bg-card p-4 shadow-2xs transition-all hover:border-primary/30"
           >
-            {/* Top row: Category Badge & Date */}
-            <div className="flex items-center justify-between gap-2 mb-2.5">
-              <span
-                className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold text-white shadow-2xs"
-                style={{ backgroundColor: cat?.color || '#64748b' }}
-              >
-                <CategoryIcon name={cat?.iconName || 'Tag'} className="size-3.5" />
-                <span>{cat?.name || 'Other'}</span>
-              </span>
+            {/* Top row: Category Badge, Type Badge & Date */}
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span
+                  className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold text-white shadow-2xs"
+                  style={{ backgroundColor: cat?.color || '#64748b' }}
+                >
+                  <CategoryIcon name={cat?.iconName || 'Tag'} className="size-3.5" />
+                  <span>{cat?.name || 'Other'}</span>
+                </span>
+
+                {showTypeBadge && (
+                  <span
+                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                      isPersonal
+                        ? 'bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
+                        : 'bg-primary/10 text-primary border border-primary/20'
+                    }`}
+                  >
+                    {isPersonal ? '👤 Personal' : '🍳 Kitchen'}
+                  </span>
+                )}
+              </div>
 
               <div className="flex items-center gap-1 text-[11px] text-muted-foreground font-medium">
                 <Calendar className="size-3" />

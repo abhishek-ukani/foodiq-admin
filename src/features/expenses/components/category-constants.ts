@@ -15,6 +15,16 @@ import {
   Sparkles,
   Coffee,
   Boxes,
+  Shirt,
+  HeartPulse,
+  GraduationCap,
+  Zap,
+  Home,
+  Utensils,
+  BookOpen,
+  UserCheck,
+  Smile,
+  Heart,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -35,6 +45,16 @@ export const ICON_MAP: Record<string, LucideIcon> = {
   Sparkles,
   Coffee,
   Boxes,
+  Shirt,
+  HeartPulse,
+  GraduationCap,
+  Zap,
+  Home,
+  Utensils,
+  BookOpen,
+  UserCheck,
+  Smile,
+  Heart,
 }
 
 export const AVAILABLE_ICONS = Object.keys(ICON_MAP)
