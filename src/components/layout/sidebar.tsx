@@ -24,7 +24,7 @@ export const NAV_ITEMS = [
   { to: ADMIN_ROUTES.dashboard, label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: ADMIN_ROUTES.orders, label: 'Orders', icon: ShoppingBag, end: false },
   { to: ADMIN_ROUTES.kitchenCalculator, label: 'Quantity Calculator', icon: Scale, end: false },
-  { to: ADMIN_ROUTES.expenses, label: 'Kitchen Expenses', icon: Receipt, end: false },
+  { to: ADMIN_ROUTES.expenses, label: 'Expense Manager', icon: Receipt, end: false },
   { to: ADMIN_ROUTES.categories, label: 'Categories', icon: Tag, end: false },
   { to: ADMIN_ROUTES.foodItems, label: 'Food Items', icon: UtensilsCrossed, end: false },
   { to: ADMIN_ROUTES.dailyMenu, label: 'Daily Menu', icon: CalendarDays, end: false },
