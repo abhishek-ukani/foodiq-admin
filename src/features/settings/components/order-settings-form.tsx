@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
+import { Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
@@ -27,6 +28,8 @@ const DEFAULTS: OrderSettingsInput = {
   max_advance_days: 7,
   allow_same_day: true,
   auto_accept_orders: false,
+  default_lunch_cutoff_time: '10:00',
+  default_dinner_cutoff_time: '18:00',
 }
 
 export function OrderSettingsForm() {
@@ -40,7 +43,12 @@ export function OrderSettingsForm() {
   })
 
   useEffect(() => {
-    if (value) form.reset(value)
+    if (value) {
+      form.reset({
+        ...DEFAULTS,
+        ...value,
+      })
+    }
   }, [value, form])
 
   if (isPending) return <Skeleton className="h-96 w-full rounded-xl" />
@@ -133,6 +141,60 @@ export function OrderSettingsForm() {
                   </FormItem>
                 )}
               />
+            </div>
+
+            {/* Default Meal Cutoff Times */}
+            <div className="rounded-lg border border-amber-200/80 bg-amber-50/50 p-4 space-y-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Clock className="size-4 text-amber-700" aria-hidden />
+                  <h4 className="text-sm font-semibold text-amber-950">
+                    Default Kitchen Order Cutoff Times
+                  </h4>
+                </div>
+                <p className="text-muted-foreground text-xs mt-0.5">
+                  Applied as default ordering cutoffs for daily lunch and dinner menus and storefront availability.
+                </p>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2 pt-1">
+                <FormField
+                  control={form.control}
+                  name="default_lunch_cutoff_time"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs font-semibold text-foreground">Default Lunch Cutoff</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="time"
+                          className="bg-white min-h-[44px]"
+                          value={field.value ?? '10:00'}
+                          onChange={(e) => field.onChange(e.target.value)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="default_dinner_cutoff_time"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs font-semibold text-foreground">Default Dinner Cutoff</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="time"
+                          className="bg-white min-h-[44px]"
+                          value={field.value ?? '18:00'}
+                          onChange={(e) => field.onChange(e.target.value)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
             </div>
 
             <div className="flex items-center justify-between rounded-lg border p-3">

@@ -12,19 +12,11 @@ export interface DashboardSummary {
   average_order_value: number
   total_customers: number
   new_customers_this_month: number
+  pending_payment_amount: number
+  pending_payment_orders: number
 }
 
 export async function fetchDashboardSummary(): Promise<DashboardSummary> {
-  // First attempt RPC if available
-  try {
-    const { data, error } = await supabase.rpc('report_dashboard_summary', {})
-    if (!error && data && typeof data === 'object') {
-      return data as unknown as DashboardSummary
-    }
-  } catch {
-    // Fall back to direct database query
-  }
-
   // Direct calculation from real orders in Supabase
   const { data: orders, error } = await supabase
     .from('orders')
@@ -41,6 +33,8 @@ export async function fetchDashboardSummary(): Promise<DashboardSummary> {
       average_order_value: 0,
       total_customers: 0,
       new_customers_this_month: 0,
+      pending_payment_amount: 0,
+      pending_payment_orders: 0,
     }
   }
 
@@ -53,6 +47,8 @@ export async function fetchDashboardSummary(): Promise<DashboardSummary> {
   let active_orders = 0
   let month_revenue = 0
   let month_orders = 0
+  let pending_payment_amount = 0
+  let pending_payment_orders = 0
   const uniqueCustomers = new Set<string>()
 
   orders.forEach((o) => {
@@ -86,6 +82,12 @@ export async function fetchDashboardSummary(): Promise<DashboardSummary> {
         month_orders++
         month_revenue += Number(o.total_amount || 0)
       }
+
+      // Track unpaid receivables (Khata)
+      if (o.payment_status !== 'paid') {
+        pending_payment_amount += Number(o.total_amount || 0)
+        pending_payment_orders++
+      }
     }
   })
 
@@ -101,6 +103,8 @@ export async function fetchDashboardSummary(): Promise<DashboardSummary> {
     average_order_value,
     total_customers: uniqueCustomers.size,
     new_customers_this_month: uniqueCustomers.size,
+    pending_payment_amount,
+    pending_payment_orders,
   }
 }
 
