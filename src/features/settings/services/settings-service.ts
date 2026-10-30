@@ -11,7 +11,15 @@ export async function updateSystemConfigKey(key: string, value: Json): Promise<v
   const { data: session } = await supabase.auth.getUser()
   const { error } = await supabase
     .from('system_config')
-    .update({ value, updated_by: session.user?.id ?? null })
-    .eq('key', key)
+    .upsert(
+      {
+        key,
+        value,
+        is_public: true,
+        updated_by: session.user?.id ?? null,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'key' },
+    )
   if (error) throw error
 }

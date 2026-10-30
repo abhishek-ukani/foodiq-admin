@@ -8,6 +8,13 @@ export interface MenuLockStatus {
   cutoffDisplay?: string | null
 }
 
+export const DEFAULT_LUNCH_CUTOFF = '10:00'
+export const DEFAULT_DINNER_CUTOFF = '18:00'
+
+export function getDefaultCutoffForMeal(meal: MealType): string {
+  return meal === 'lunch' ? DEFAULT_LUNCH_CUTOFF : DEFAULT_DINNER_CUTOFF
+}
+
 /**
  * Checks if editing a daily menu for a given date and meal is locked for the admin.
  * - Past dates: ALWAYS locked (archived).
@@ -17,8 +24,9 @@ export interface MenuLockStatus {
  */
 export function checkMenuEditLock(
   dateStr: string,
-  _meal: MealType,
+  meal: MealType,
   customCutoffTime?: string | null,
+  configuredDefaultCutoff?: string | null,
 ): MenuLockStatus {
   const todayStr = dayjs().format('YYYY-MM-DD')
 
@@ -46,11 +54,18 @@ export function checkMenuEditLock(
   const now = dayjs()
   const currentMinutes = now.hour() * 60 + now.minute()
 
+  const effectiveCutoff =
+    customCutoffTime && customCutoffTime.includes(':')
+      ? customCutoffTime
+      : configuredDefaultCutoff && configuredDefaultCutoff.includes(':')
+        ? configuredDefaultCutoff
+        : getDefaultCutoffForMeal(meal)
+
   let cutoffMinutes: number | null = null
   let cutoffDisplay: string | null = null
 
-  if (customCutoffTime && customCutoffTime.includes(':')) {
-    const parts = customCutoffTime.split(':')
+  if (effectiveCutoff && effectiveCutoff.includes(':')) {
+    const parts = effectiveCutoff.split(':')
     const h = parseInt(parts[0], 10)
     const m = parseInt(parts[1], 10)
     cutoffMinutes = h * 60 + m

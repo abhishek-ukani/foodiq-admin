@@ -35,6 +35,7 @@ import {
   useToggleMenuItemAvailable,
   useToggleMenuItemSpecial,
   useToggleMenuItemThaliOption,
+  useTogglePublish,
   useUpdateMenuItemInventory,
 } from '@/features/menu/hooks/use-daily-menu'
 import {
@@ -45,6 +46,8 @@ import {
   type ThaliComponentCategoryType,
 } from '../services/thali-components-service'
 import { checkMenuEditLock } from '@/features/menu/utils/menu-cutoff'
+import { useConfigValue } from '@/features/settings/hooks/use-settings'
+import type { OrderSettingsInput } from '@/features/settings/schemas/settings-schemas'
 import { CURRENCY_SYMBOL } from '@/constants'
 import type { MealType } from '@/types/database.types'
 import type { FoodItemWithCategory } from '@/features/food-items/services/food-items-service'
@@ -370,8 +373,13 @@ function SectionSearchableDropdown({
                     <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
                       <span className="font-medium text-emerald-700">
                         {CURRENCY_SYMBOL}
-                        {item.compare_price ?? item.price}
+                        {item.price}
                       </span>
+                      {item.compare_price && item.compare_price > item.price ? (
+                        <span className="line-through text-muted-foreground/70 text-[10px]">
+                          {CURRENCY_SYMBOL}{item.compare_price}
+                        </span>
+                      ) : null}
                       {item.categories?.name && (
                         <span>• {item.categories.name}</span>
                       )}
@@ -486,8 +494,14 @@ export function DailyThaliChoicesCard() {
   const [date, setDate] = useState(todayStr)
   const [meal, setMeal] = useState<MealType>('lunch')
 
+  const orderSettings = useConfigValue<OrderSettingsInput>('order_settings')
+  const defaultMealCutoff =
+    (meal === 'lunch'
+      ? orderSettings?.default_lunch_cutoff_time
+      : orderSettings?.default_dinner_cutoff_time) ?? (meal === 'lunch' ? '10:00' : '18:00')
+
   const { data: menu, isPending: menuPending } = useDailyMenu(date, meal)
-  const lockStatus = checkMenuEditLock(date, meal, menu?.cutoff_time)
+  const lockStatus = checkMenuEditLock(date, meal, menu?.cutoff_time, defaultMealCutoff)
   const { data: menuItems, isPending: itemsPending } = useMenuItems(menu?.id)
   const { data: allFoodItems } = useFoodItems()
   const { data: globalComponents } = useThaliComponents()
@@ -498,6 +512,7 @@ export function DailyThaliChoicesCard() {
   const toggleAvailable = useToggleMenuItemAvailable(menu?.id)
   const toggleSpecial = useToggleMenuItemSpecial(menu?.id)
   const toggleThaliOption = useToggleMenuItemThaliOption(menu?.id)
+  const togglePublish = useTogglePublish(date, meal)
   const addToGlobal = useAddThaliComponent()
   const removeFromGlobal = useRemoveThaliComponent()
   const updateInventory = useUpdateMenuItemInventory(menu?.id)
@@ -666,6 +681,22 @@ export function DailyThaliChoicesCard() {
               <Sparkles className="size-3.5 text-amber-500" aria-hidden />
               Auto-Populate
             </Button>
+
+            {menu && (
+              <div className="flex items-center gap-2 rounded-lg border border-border/80 bg-muted/30 px-3 py-1 text-xs">
+                <span className="font-medium text-foreground">
+                  {menu.is_published ? 'Published' : 'Draft'}
+                </span>
+                <Switch
+                  checked={menu.is_published}
+                  disabled={lockStatus.isLocked || togglePublish.isPending}
+                  onCheckedChange={(checked) =>
+                    togglePublish.mutate({ id: menu.id, is_published: checked })
+                  }
+                  aria-label="Toggle menu published status"
+                />
+              </div>
+            )}
           </div>
         </div>
       </CardHeader>
@@ -808,9 +839,13 @@ export function DailyThaliChoicesCard() {
                                   </div>
 
                                   <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
-                                    <span>
-                                      Price: {CURRENCY_SYMBOL}
-                                      {item.food_items.compare_price ?? item.food_items.price}
+                                    <span className="flex items-center gap-1.5">
+                                      Price: <span className="font-semibold text-foreground">{CURRENCY_SYMBOL}{item.food_items.price}</span>
+                                      {item.food_items.compare_price && item.food_items.compare_price > item.food_items.price ? (
+                                        <span className="line-through text-[11px] text-muted-foreground/70">
+                                          {CURRENCY_SYMBOL}{item.food_items.compare_price}
+                                        </span>
+                                      ) : null}
                                     </span>
                                     {item.available_quantity ? (
                                       <span className="text-amber-800 font-medium">

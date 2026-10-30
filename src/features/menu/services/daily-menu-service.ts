@@ -75,9 +75,34 @@ export async function ensureDailyMenu(menuDate: string, mealType: MealType): Pro
     return existing
   }
 
+  let defaultCutoff = mealType === 'lunch' ? '10:00:00' : '18:00:00'
+  try {
+    const { data: sysCfg } = await supabase
+      .from('system_config')
+      .select('value')
+      .eq('key', 'order_settings')
+      .maybeSingle()
+    const orderSettings = sysCfg?.value as Record<string, any> | null
+    if (mealType === 'lunch' && orderSettings?.default_lunch_cutoff_time) {
+      const val = String(orderSettings.default_lunch_cutoff_time)
+      defaultCutoff = val.length === 5 ? `${val}:00` : val
+    } else if (mealType === 'dinner' && orderSettings?.default_dinner_cutoff_time) {
+      const val = String(orderSettings.default_dinner_cutoff_time)
+      defaultCutoff = val.length === 5 ? `${val}:00` : val
+    }
+  } catch (err) {
+    console.warn('Could not read order_settings for default cutoff:', err)
+  }
+
   const { data: created, error: insertError } = await supabase
     .from('daily_menus')
-    .insert({ branch_id, menu_date: menuDate, meal_type: mealType, is_published: false })
+    .insert({
+      branch_id,
+      menu_date: menuDate,
+      meal_type: mealType,
+      is_published: false,
+      cutoff_time: defaultCutoff,
+    })
     .select()
     .single()
   if (insertError) throw insertError

@@ -23,6 +23,8 @@ export function useUpdateOrderStatus() {
       updateOrderStatus(id, status, reason),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.orders() })
+      queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.customers() })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'customer'] })
       toast.success('Order updated')
     },
     onError: (error) => toast.error(error.message),
@@ -36,6 +38,8 @@ export function useUpdateOrderDeliveryCharge() {
       updateOrderDeliveryCharge(id, deliveryCharge),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.orders() })
+      queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.customers() })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'customer'] })
       toast.success('Delivery charge and order total updated')
     },
     onError: (error: Error) => toast.error(error.message),
