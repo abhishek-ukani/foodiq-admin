@@ -8,7 +8,6 @@ import { SocialSeoForm } from '@/features/settings/components/social-seo-form'
 import { BrandingForm } from '@/features/settings/components/branding-form'
 import { MaintenanceForm } from '@/features/settings/components/maintenance-form'
 import { DeliveryAreasTab } from '@/features/settings/components/delivery-areas-tab'
-import { DeliverySlotsTab } from '@/features/settings/components/delivery-slots-tab'
 import { HolidaysTab } from '@/features/settings/components/holidays-tab'
 
 export function SettingsPage() {
@@ -50,20 +49,13 @@ export function SettingsPage() {
         <TabsContent value="delivery" className="mt-6 space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Delivery Areas</CardTitle>
-              <CardDescription>Pincodes you serve, with per-area charges.</CardDescription>
+              <CardTitle>Delivery &amp; Pricing Management</CardTitle>
+              <CardDescription>
+                Configure Zone A &amp; Zone B pincodes, dynamic distance pricing rules, and serviceability.
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <DeliveryAreasTab />
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>Delivery Slots</CardTitle>
-              <CardDescription>Time windows customers can choose at checkout.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <DeliverySlotsTab />
             </CardContent>
           </Card>
         </TabsContent>

@@ -153,8 +153,8 @@ export function ThaliCustomizationPage() {
     thaliItems.length > 0
       ? thaliItems
       : (foodItems || []).filter((item) =>
-          item.name.toLowerCase().includes(searchQuery.toLowerCase()),
-        )
+        item.name.toLowerCase().includes(searchQuery.toLowerCase()),
+      )
 
   const handleOpenCreate = () => {
     setSelectedThali(null)

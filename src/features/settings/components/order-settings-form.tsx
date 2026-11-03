@@ -19,12 +19,13 @@ import {
   orderSettingsSchema,
   type OrderSettingsInput,
 } from '@/features/settings/schemas/settings-schemas'
+import { useSearchParams } from 'react-router-dom'
 import { useConfigValue, useSystemConfig, useUpdateSystemConfig } from '@/features/settings/hooks/use-settings'
 
 const DEFAULTS: OrderSettingsInput = {
   default_min_order_amount: 100,
-  default_delivery_charge: 20,
-  free_delivery_above: 500,
+  default_delivery_charge: 0,
+  free_delivery_above: 0,
   max_advance_days: 7,
   allow_same_day: true,
   auto_accept_orders: false,
@@ -33,6 +34,7 @@ const DEFAULTS: OrderSettingsInput = {
 }
 
 export function OrderSettingsForm() {
+  const [, setSearchParams] = useSearchParams()
   const { isPending } = useSystemConfig()
   const value = useConfigValue<OrderSettingsInput>('order_settings')
   const update = useUpdateSystemConfig()
@@ -88,42 +90,6 @@ export function OrderSettingsForm() {
               />
               <FormField
                 control={form.control}
-                name="default_delivery_charge"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Default delivery charge (₹)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        min={0}
-                        value={field.value}
-                        onChange={(e) => field.onChange(e.target.valueAsNumber || 0)}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="free_delivery_above"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Free delivery above (₹)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        min={0}
-                        value={field.value}
-                        onChange={(e) => field.onChange(e.target.valueAsNumber || 0)}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
                 name="max_advance_days"
                 render={({ field }) => (
                   <FormItem>
@@ -141,6 +107,25 @@ export function OrderSettingsForm() {
                   </FormItem>
                 )}
               />
+            </div>
+
+            {/* Dynamic Delivery Settings Info Banner */}
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h4 className="text-sm font-semibold text-foreground">Dynamic Delivery Pricing &amp; Pincode Zones</h4>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Delivery charges, free distance radius, per-km rates, and zone pincodes are managed live from database under the <strong>Delivery</strong> tab.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="shrink-0 text-xs font-semibold"
+                onClick={() => setSearchParams({ tab: 'delivery' }, { replace: true })}
+              >
+                Configure Delivery Rules
+              </Button>
             </div>
 
             {/* Default Meal Cutoff Times */}
