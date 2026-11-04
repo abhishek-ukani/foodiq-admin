@@ -120,10 +120,13 @@ export function DeliveryAreasTab() {
     const item = configData?.find((c) => c.key === 'kitchen_location')
     if (!item?.value) return { ...DEFAULT_KITCHEN_LOCATION }
     const val = item.value as any
-    return {
-      lat: Number(val.lat ?? DEFAULT_KITCHEN_LOCATION.lat),
-      lng: Number(val.lng ?? DEFAULT_KITCHEN_LOCATION.lng),
+    const lat = Number(val.lat)
+    const lng = Number(val.lng)
+    // If coordinates are invalid or point to legacy Gota location (> 23.08), default to Bodakdev
+    if (!lat || !lng || isNaN(lat) || isNaN(lng) || (lat > 23.08 && lat < 23.15)) {
+      return { ...DEFAULT_KITCHEN_LOCATION }
     }
+    return { lat, lng }
   }, [configData])
 
   const [kitchenLat, setKitchenLat] = useState<string>('')
@@ -817,6 +820,76 @@ export function DeliveryAreasTab() {
                   </p>
                 </div>
               </div>
+            </div>
+
+            {/* KITCHEN LOCATION CONFIGURATION */}
+            <div className="rounded-xl border bg-card p-5 space-y-4 md:col-span-2">
+              <div className="flex items-center justify-between border-b pb-2">
+                <div>
+                  <h3 className="font-bold text-base text-foreground flex items-center gap-2">
+                    <MapPin className="size-4 text-primary" /> Central Kitchen Location
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Sarita Apartments, Satya Marg, Bodakdev, Ahmedabad – 380015. Driving distance and delivery charges are computed from this pin.
+                  </p>
+                </div>
+                {!isEditingKitchen && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setKitchenLat(String(kitchenLoc.lat))
+                      setKitchenLng(String(kitchenLoc.lng))
+                      setIsEditingKitchen(true)
+                    }}
+                  >
+                    Edit Coordinates
+                  </Button>
+                )}
+              </div>
+
+              {isEditingKitchen ? (
+                <div className="space-y-3 pt-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-xs font-medium">Kitchen Latitude</Label>
+                      <Input
+                        type="number"
+                        step="0.0000001"
+                        value={kitchenLat}
+                        onChange={(e) => setKitchenLat(e.target.value)}
+                        className="mt-1 font-mono text-sm"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs font-medium">Kitchen Longitude</Label>
+                      <Input
+                        type="number"
+                        step="0.0000001"
+                        value={kitchenLng}
+                        onChange={(e) => setKitchenLng(e.target.value)}
+                        className="mt-1 font-mono text-sm"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 pt-2">
+                    <Button size="sm" onClick={handleSaveKitchenLocation} disabled={updateConfig.isPending}>
+                      <Save className="size-3.5 mr-1" /> Save Kitchen Location
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => setIsEditingKitchen(false)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center gap-4 text-xs font-mono bg-muted/30 p-3 rounded-lg border">
+                  <span><strong>Lat:</strong> {kitchenLoc.lat}</span>
+                  <span><strong>Lng:</strong> {kitchenLoc.lng}</span>
+                  <span className="text-muted-foreground font-sans text-xs">
+                    (Sarita Apartments, Bodakdev)
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </TabsContent>
