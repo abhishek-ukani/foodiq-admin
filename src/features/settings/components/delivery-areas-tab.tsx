@@ -4,12 +4,10 @@ import {
   Clock,
   HelpCircle,
   MapPin,
-  MoreHorizontal,
   Navigation,
   Plus,
   RotateCcw,
   Save,
-  Search,
   X,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -19,42 +17,9 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { EmptyState } from '@/components/common/empty-state'
-import { ConfirmDialog } from '@/components/common/confirm-dialog'
-import {
-  useCreateDeliveryArea,
-  useDeleteDeliveryArea,
-  useDeliveryAreas,
-  useUpdateDeliveryArea,
-} from '@/features/settings/hooks/use-delivery'
 import { useConfigValue, useSystemConfig, useUpdateSystemConfig } from '@/features/settings/hooks/use-settings'
 import { CURRENCY_SYMBOL, DEFAULT_KITCHEN_LOCATION } from '@/constants'
 import type { DeliverySettings } from '@/types/delivery'
-import type { Tables } from '@/types/database.types'
-
-type Area = Tables<'delivery_areas'>
-
-const EMPTY_AREA_FORM = {
-  name: '',
-  area_key: '',
-  pincode: '',
-  city: 'Ahmedabad',
-  state: 'Gujarat',
-}
 
 const EMPTY_DELIVERY_SETTINGS: DeliverySettings = {
   zone_a_pincodes: [],
@@ -68,17 +33,13 @@ const EMPTY_DELIVERY_SETTINGS: DeliverySettings = {
 }
 
 export function DeliveryAreasTab() {
-  const [activeTab, setActiveTab] = useState<'pincodes' | 'pricing' | 'areas'>('pincodes')
+  const [activeTab, setActiveTab] = useState<'pincodes' | 'pricing'>('pincodes')
 
   // Queries
-  const { data: areas, isPending: areasPending } = useDeliveryAreas()
   const { data: configData } = useSystemConfig()
   const rawDeliveryConfig = useConfigValue<DeliverySettings>('delivery_settings')
 
   // Mutations
-  const createArea = useCreateDeliveryArea()
-  const updateArea = useUpdateDeliveryArea()
-  const deleteArea = useDeleteDeliveryArea()
   const updateConfig = useUpdateSystemConfig()
 
   // Delivery Settings State: Loaded 100% dynamically from database
@@ -132,23 +93,6 @@ export function DeliveryAreasTab() {
   const [kitchenLat, setKitchenLat] = useState<string>('')
   const [kitchenLng, setKitchenLng] = useState<string>('')
   const [isEditingKitchen, setIsEditingKitchen] = useState(false)
-
-  // Dialog State - Areas
-  const [areaSearch, setAreaSearch] = useState('')
-  const [areaFormOpen, setAreaFormOpen] = useState(false)
-  const [editingArea, setEditingArea] = useState<Area | null>(null)
-  const [deletingArea, setDeletingArea] = useState<Area | null>(null)
-  const [areaForm, setAreaForm] = useState(EMPTY_AREA_FORM)
-
-  // Filtered areas
-  const filteredAreas = useMemo(() => {
-    if (!areas) return []
-    if (!areaSearch.trim()) return areas
-    const q = areaSearch.toLowerCase().trim()
-    return areas.filter(
-      (a) => a.name.toLowerCase().includes(q) || a.area_key?.toLowerCase().includes(q) || a.pincode?.includes(q),
-    )
-  }, [areas, areaSearch])
 
   // Save Kitchen Location
   const handleSaveKitchenLocation = () => {
@@ -274,40 +218,6 @@ export function DeliveryAreasTab() {
       { key: 'delivery_settings', value: EMPTY_DELIVERY_SETTINGS as any },
       { onSuccess: () => toast.success('Cleared delivery settings') },
     )
-  }
-
-  // --- Area Handlers ---
-  const openCreateArea = () => {
-    setEditingArea(null)
-    setAreaForm(EMPTY_AREA_FORM)
-    setAreaFormOpen(true)
-  }
-  const openEditArea = (a: Area) => {
-    setEditingArea(a)
-    setAreaForm({
-      name: a.name,
-      area_key: a.area_key ?? '',
-      pincode: a.pincode ?? '',
-      city: a.city ?? 'Ahmedabad',
-      state: a.state ?? 'Gujarat',
-    })
-    setAreaFormOpen(true)
-  }
-  const handleSaveArea = () => {
-    const name = areaForm.name.trim()
-    const area_key = areaForm.area_key.trim().toLowerCase() || name.toLowerCase().replace(/[^a-z0-9]/g, '')
-    const payload = {
-      name,
-      area_key,
-      pincode: areaForm.pincode.trim() || null,
-      city: areaForm.city.trim() || 'Ahmedabad',
-      state: areaForm.state.trim() || 'Gujarat',
-    }
-    if (editingArea) {
-      updateArea.mutate({ id: editingArea.id, input: payload }, { onSuccess: () => setAreaFormOpen(false) })
-    } else {
-      createArea.mutate(payload, { onSuccess: () => setAreaFormOpen(false) })
-    }
   }
 
   // Calculation Simulator (Unified distance pricing for both Zone A & Zone B)
@@ -487,10 +397,6 @@ export function DeliveryAreasTab() {
           <TabsTrigger value="pricing" className="gap-2">
             <Calculator className="size-4" />
             Dynamic Pricing &amp; Rules
-          </TabsTrigger>
-          <TabsTrigger value="areas" className="gap-2">
-            <Navigation className="size-4" />
-            Named Localities ({areas?.length ?? 0})
           </TabsTrigger>
         </TabsList>
 
@@ -893,166 +799,7 @@ export function DeliveryAreasTab() {
             </div>
           </div>
         </TabsContent>
-
-        {/* ─────────────────────────────────────────────────────────────────── */}
-        {/* TAB 3: NAMED SERVICEABLE LOCALITIES                                 */}
-        {/* ─────────────────────────────────────────────────────────────────── */}
-        <TabsContent value="areas" className="space-y-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-muted-foreground text-xs">
-              List of deliverable areas and localities for text matching (e.g. Bodakdev, Satellite, Vastrapur).
-            </p>
-            <div className="flex items-center gap-2">
-              <div className="relative max-w-xs">
-                <Search className="text-muted-foreground absolute left-2.5 top-2.5 size-4" />
-                <Input
-                  placeholder="Search area..."
-                  value={areaSearch}
-                  onChange={(e) => setAreaSearch(e.target.value)}
-                  className="pl-8"
-                />
-              </div>
-              <Button size="sm" onClick={openCreateArea} className="shrink-0">
-                <Plus className="size-4" />
-                Add Area
-              </Button>
-            </div>
-          </div>
-
-          {!areasPending && !areas?.length ? (
-            <EmptyState
-              icon={MapPin}
-              title="No serviceable areas configured"
-              description="Add named localities to enable delivery text matching."
-              action={
-                <Button size="sm" onClick={openCreateArea}>
-                  <Plus className="size-4" /> Add Area
-                </Button>
-              }
-              className="border-none py-10"
-            />
-          ) : (
-            <div className="overflow-x-auto rounded-lg border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Area Name</TableHead>
-                    <TableHead>Area Match Key</TableHead>
-                    <TableHead>Pincode</TableHead>
-                    <TableHead>Zone Classification</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="w-12" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredAreas.map((a) => {
-                    const isZoneA = a.pincode && deliveryForm.zone_a_pincodes.includes(a.pincode.trim())
-                    const isZoneB = a.pincode && deliveryForm.zone_b_pincodes.includes(a.pincode.trim())
-                    return (
-                      <TableRow key={a.id}>
-                        <TableCell className="font-semibold">{a.name}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="font-mono text-xs">{a.area_key || a.name.toLowerCase()}</Badge>
-                        </TableCell>
-                        <TableCell className="font-mono">{a.pincode || '—'}</TableCell>
-                        <TableCell>
-                          {isZoneA ? (
-                            <Badge variant="outline" className="border-emerald-500/40 text-emerald-700 bg-emerald-500/10 text-xs">
-                              Zone A (Core)
-                            </Badge>
-                          ) : isZoneB ? (
-                            <Badge variant="outline" className="border-amber-500/40 text-amber-700 bg-amber-500/10 text-xs">
-                              Zone B (Extended)
-                            </Badge>
-                          ) : (
-                            <Badge variant="secondary" className="text-xs text-muted-foreground">
-                              Standard
-                            </Badge>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <button
-                            type="button"
-                            onClick={() => updateArea.mutate({ id: a.id, input: { is_active: !a.is_active } })}
-                          >
-                            <Badge variant={a.is_active ? 'secondary' : 'outline'}>
-                              {a.is_active ? 'Active' : 'Inactive'}
-                            </Badge>
-                          </button>
-                        </TableCell>
-                        <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon"><MoreHorizontal className="size-4" /></Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => openEditArea(a)}>Edit</DropdownMenuItem>
-                              <DropdownMenuItem className="text-destructive" onClick={() => setDeletingArea(a)}>Delete</DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </TabsContent>
       </Tabs>
-
-      {/* ── DIALOGS ── */}
-      {/* Create / Edit Area Dialog */}
-      <Dialog open={areaFormOpen} onOpenChange={setAreaFormOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>{editingArea ? 'Edit Delivery Area' : 'Add Delivery Area'}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div>
-              <label className="text-muted-foreground mb-1 block text-xs font-medium">Area Name *</label>
-              <Input
-                placeholder="e.g. Bodakdev"
-                value={areaForm.name}
-                onChange={(e) => setAreaForm({ ...areaForm, name: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="text-muted-foreground mb-1 block text-xs font-medium">Area Key (for text matching)</label>
-              <Input
-                placeholder="e.g. bodakdev"
-                value={areaForm.area_key}
-                onChange={(e) => setAreaForm({ ...areaForm, area_key: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="text-muted-foreground mb-1 block text-xs font-medium">Pincode Hint</label>
-              <Input
-                placeholder="e.g. 380054"
-                value={areaForm.pincode}
-                onChange={(e) => setAreaForm({ ...areaForm, pincode: e.target.value })}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAreaFormOpen(false)}>Cancel</Button>
-            <Button onClick={handleSaveArea} disabled={!areaForm.name.trim() || createArea.isPending || updateArea.isPending}>
-              {editingArea ? 'Save Changes' : 'Create Area'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Confirmation */}
-      <ConfirmDialog
-        open={Boolean(deletingArea)}
-        onOpenChange={(open) => !open && setDeletingArea(null)}
-        title="Delete area?"
-        description={`"${deletingArea?.name}" will be removed from deliverable areas.`}
-        confirmLabel="Delete Area"
-        isLoading={deleteArea.isPending}
-        onConfirm={() => deletingArea && deleteArea.mutate(deletingArea.id, { onSuccess: () => setDeletingArea(null) })}
-      />
     </div>
   )
 }
