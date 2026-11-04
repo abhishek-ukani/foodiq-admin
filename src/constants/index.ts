@@ -117,3 +117,12 @@ export const CURRENCY_SYMBOL = '₹'
 export const DATE_FORMAT = 'DD MMM YYYY'
 export const DATE_TIME_FORMAT = 'DD MMM YYYY, h:mm A'
 export const API_DATE_FORMAT = 'YYYY-MM-DD'
+
+/**
+ * Canonical kitchen coordinates (Sarita Apartments, Satya Marg, Bodakdev, Ahmedabad - 380015).
+ * Single authoritative source of truth across web & admin.
+ */
+export const DEFAULT_KITCHEN_LOCATION = {
+  lat: 23.0347092,
+  lng: 72.5153523,
+} as const
