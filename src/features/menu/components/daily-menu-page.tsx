@@ -15,6 +15,7 @@ import {
   UtensilsCrossed,
   Store,
   ArrowRight,
+  Sparkles,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -48,6 +49,7 @@ import {
   useMenuItems,
   useRemoveMenuItem,
   useToggleMenuItemAvailable,
+  useToggleMenuItemSpecial,
   useToggleMenuItemStandalone,
   useToggleMenuItemThaliOption,
   useTogglePublish,
@@ -55,6 +57,8 @@ import {
   useUpdateMenuItemInventory,
 } from '@/features/menu/hooks/use-daily-menu'
 import { checkMenuEditLock } from '@/features/menu/utils/menu-cutoff'
+import { useConfigValue } from '@/features/settings/hooks/use-settings'
+import type { OrderSettingsInput } from '@/features/settings/schemas/settings-schemas'
 import { useDeliverySlots } from '@/features/settings/hooks/use-delivery'
 import { useHolidaySettings } from '@/features/settings/hooks/use-holidays'
 import { CURRENCY_SYMBOL } from '@/constants'
@@ -164,8 +168,13 @@ export function DailyMenuPage() {
   const [copyDialogOpen, setCopyDialogOpen] = useState(false)
   const [sourceDate, setSourceDate] = useState(dayjs().subtract(1, 'day').format('YYYY-MM-DD'))
 
+  const orderSettings = useConfigValue<OrderSettingsInput>('order_settings')
+  const defaultMealCutoff =
+    (meal === 'lunch'
+      ? orderSettings?.default_lunch_cutoff_time
+      : orderSettings?.default_dinner_cutoff_time) ?? (meal === 'lunch' ? '10:00' : '18:00')
+
   const { data: menu, isPending: menuPending } = useDailyMenu(date, meal)
-  const lockStatus = checkMenuEditLock(date, meal, menu?.cutoff_time)
   const { data: menuItems, isPending: itemsPending } = useMenuItems(menu?.id)
   const { data: allFoodItems } = useFoodItems()
   const { data: deliverySlots } = useDeliverySlots()
@@ -179,7 +188,8 @@ export function DailyMenuPage() {
   }, [holidaySettings, date, meal])
 
   const matchingSlot = deliverySlots?.find((s) => s.meal_type === meal && s.is_active)
-  const defaultSlotCutoff = matchingSlot?.cutoff_time?.slice(0, 5) ?? ''
+  const defaultSlotCutoff = matchingSlot?.cutoff_time?.slice(0, 5) ?? defaultMealCutoff
+  const lockStatus = checkMenuEditLock(date, meal, menu?.cutoff_time, defaultSlotCutoff)
 
   const togglePublish = useTogglePublish(date, meal)
   const updateCutoff = useUpdateMenuCutoff(date, meal)
@@ -187,6 +197,7 @@ export function DailyMenuPage() {
   const copyMenu = useCopyPreviousMenu(menu?.id)
   const removeItem = useRemoveMenuItem(menu?.id)
   const toggleAvailable = useToggleMenuItemAvailable(menu?.id)
+  const toggleSpecial = useToggleMenuItemSpecial(menu?.id)
   const toggleStandalone = useToggleMenuItemStandalone(menu?.id)
   const toggleThaliOption = useToggleMenuItemThaliOption(menu?.id)
   const updateInventory = useUpdateMenuItemInventory(menu?.id)
@@ -448,6 +459,19 @@ export function DailyMenuPage() {
                             onCheckedChange={(checked) =>
                               toggleAvailable.mutate({ id: item.id, is_available: checked })
                             }
+                          />
+                        </div>
+
+                        <div className="flex items-center gap-1.5" title="Feature dish in Today's Special on website homepage">
+                          <Sparkles className="size-3.5 text-amber-500" aria-hidden="true" />
+                          <span className="text-xs text-amber-700 font-medium">Special</span>
+                          <Switch
+                            checked={item.is_special === true}
+                            disabled={lockStatus.isLocked}
+                            onCheckedChange={(checked) =>
+                              toggleSpecial.mutate({ id: item.id, is_special: checked })
+                            }
+                            aria-label={`Toggle special for ${item.food_items.name}`}
                           />
                         </div>
 

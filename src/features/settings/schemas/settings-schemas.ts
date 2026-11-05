@@ -15,11 +15,13 @@ export type BusinessProfileInput = z.infer<typeof businessProfileSchema>
 
 export const orderSettingsSchema = z.object({
   default_min_order_amount: z.number().min(0),
-  default_delivery_charge: z.number().min(0),
-  free_delivery_above: z.number().min(0),
+  default_delivery_charge: z.number().min(0).default(0).optional(),
+  free_delivery_above: z.number().min(0).default(0).optional(),
   max_advance_days: z.number().int().min(1).max(30),
   allow_same_day: z.boolean(),
   auto_accept_orders: z.boolean(),
+  default_lunch_cutoff_time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Please enter a valid time (HH:MM)'),
+  default_dinner_cutoff_time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Please enter a valid time (HH:MM)'),
 })
 export type OrderSettingsInput = z.infer<typeof orderSettingsSchema>
 

@@ -165,7 +165,20 @@ export function DeliverySlotsTab() {
             />
             <Select
               value={form.meal_type}
-              onValueChange={(v) => setForm({ ...form, meal_type: v as MealType })}
+              onValueChange={(v) => {
+                const mealType = v as MealType
+                if (!editing) {
+                  const defaults =
+                    mealType === 'dinner'
+                      ? { start_time: '19:00', end_time: '21:00', cutoff_time: '18:00' }
+                      : mealType === 'breakfast'
+                        ? { start_time: '08:00', end_time: '10:00', cutoff_time: '07:00' }
+                        : { start_time: '12:00', end_time: '14:00', cutoff_time: '10:00' }
+                  setForm({ ...form, meal_type: mealType, ...defaults })
+                } else {
+                  setForm({ ...form, meal_type: mealType })
+                }
+              }}
             >
               <SelectTrigger className="w-full">
                 <SelectValue />

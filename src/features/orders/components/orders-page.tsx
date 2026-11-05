@@ -14,6 +14,7 @@ import {
   Search,
   Table as TableIcon,
   X,
+  PackageCheck,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -47,7 +48,8 @@ type DateFilterMode = 'today' | 'tomorrow' | 'yesterday' | 'custom' | 'all'
 const STATUS_TABS: { value: StatusTabValue; label: string }[] = [
   { value: 'all', label: 'All Orders' },
   { value: 'pending', label: 'Pending' },
-  { value: 'accepted', label: 'Accepted / Kitchen' },
+  { value: 'accepted', label: 'In Kitchen' },
+  { value: 'ready', label: 'Ready / Packed' },
   { value: 'delivered', label: 'Delivered' },
   { value: 'out_of_zone', label: '🟡 Out of Zone' },
   { value: 'cancelled', label: 'Cancelled / Rejected' },
@@ -122,8 +124,10 @@ export function OrdersPage() {
       if (o.is_out_of_zone) counts.out_of_zone = (counts.out_of_zone || 0) + 1
 
       if (o.status === 'pending') counts.pending = (counts.pending || 0) + 1
-      else if (o.status === 'accepted' || o.status === 'preparing' || o.status === 'ready' || o.status === 'out_for_delivery') {
+      else if (o.status === 'accepted' || o.status === 'preparing') {
         counts.accepted = (counts.accepted || 0) + 1
+      } else if (o.status === 'ready' || o.status === 'out_for_delivery') {
+        counts.ready = (counts.ready || 0) + 1
       } else if (o.status === 'delivered') {
         counts.delivered = (counts.delivered || 0) + 1
       } else if (o.status === 'cancelled' || o.status === 'rejected') {
@@ -163,7 +167,9 @@ export function OrdersPage() {
     } else if (statusFilter === 'cancelled') {
       result = result.filter((o) => o.status === 'cancelled' || o.status === 'rejected')
     } else if (statusFilter === 'accepted') {
-      result = result.filter((o) => ['accepted', 'preparing', 'ready', 'out_for_delivery'].includes(o.status))
+      result = result.filter((o) => o.status === 'accepted' || o.status === 'preparing')
+    } else if (statusFilter === 'ready') {
+      result = result.filter((o) => o.status === 'ready' || o.status === 'out_for_delivery')
     } else if (statusFilter !== 'all') {
       result = result.filter((o) => o.status === statusFilter)
     }
@@ -266,8 +272,11 @@ export function OrdersPage() {
     return calculateKitchenProduction(productionOrders)
   }, [productionOrders])
 
+<<<<<<< HEAD
 
 
+=======
+>>>>>>> 3b31373b19502e2d877d7b41a53ffa5c84409216
   const { data: allFoodItems } = useFoodItems()
 
   // Map of canonical food_items from the database table (direct 1-to-1 link)
@@ -364,10 +373,15 @@ export function OrdersPage() {
     setSearch('')
   }
 
-  // 1-Click Status Update: Direct delivery!
+  // 1-Click Status Updates
   const handleDirectDeliver = (orderId: string, e: React.MouseEvent) => {
     e.stopPropagation()
     updateStatus.mutate({ id: orderId, status: 'delivered' })
+  }
+
+  const handleDirectReady = (orderId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    updateStatus.mutate({ id: orderId, status: 'ready' })
   }
 
   const handleAcceptOnly = (orderId: string, e: React.MouseEvent) => {
@@ -487,6 +501,8 @@ export function OrdersPage() {
         cell: ({ row }) => {
           const o = row.original
           const isPending = o.status === 'pending'
+          const isAcceptedOrPreparing = o.status === 'accepted' || o.status === 'preparing'
+          const isReadyOrOut = o.status === 'ready' || o.status === 'out_for_delivery'
           const isDelivered = o.status === 'delivered'
           const isCancelled = o.status === 'cancelled' || o.status === 'rejected'
 
@@ -494,30 +510,57 @@ export function OrdersPage() {
             <div className="space-y-1.5">
               <OrderStatusBadge status={o.status} />
 
-              {/* Direct 1-Click Deliver or Accept */}
+              {/* Direct Quick Actions: Pending -> Accept / Ready, Accepted -> Mark Ready, Ready -> Mark Delivered */}
               {!isDelivered && !isCancelled && (
                 <div className="flex items-center gap-1 pt-0.5">
-                  <Button
-                    size="sm"
-                    className="h-7 text-xs font-semibold px-2.5 gap-1 bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs"
-                    onClick={(e) => handleDirectDeliver(o.id, e)}
-                    disabled={updateStatus.isPending}
-                    title="Mark order directly as Delivered"
-                  >
-                    <CheckCircle2 className="size-3" />
-                    <span>{isPending ? 'Accept & Deliver' : 'Mark Delivered'}</span>
-                  </Button>
-
                   {isPending && (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs px-2 text-foreground font-medium hover:bg-accent"
+                        onClick={(e) => handleAcceptOnly(o.id, e)}
+                        disabled={updateStatus.isPending}
+                        title="Accept order into kitchen"
+                      >
+                        Accept
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="h-7 text-xs font-semibold px-2 gap-1 bg-blue-600 hover:bg-blue-700 text-white shadow-2xs"
+                        onClick={(e) => handleDirectReady(o.id, e)}
+                        disabled={updateStatus.isPending}
+                        title="Accept & mark ready/packed"
+                      >
+                        <PackageCheck className="size-3" />
+                        <span>Ready</span>
+                      </Button>
+                    </>
+                  )}
+
+                  {isAcceptedOrPreparing && (
                     <Button
                       size="sm"
-                      variant="outline"
-                      className="h-7 text-xs px-2 text-muted-foreground hover:text-foreground"
-                      onClick={(e) => handleAcceptOnly(o.id, e)}
+                      className="h-7 text-xs font-semibold px-2.5 gap-1 bg-blue-600 hover:bg-blue-700 text-white shadow-2xs"
+                      onClick={(e) => handleDirectReady(o.id, e)}
                       disabled={updateStatus.isPending}
-                      title="Accept order without marking delivered immediately"
+                      title="Tick off order packaging: meals are packed in containers and ready for delivery"
                     >
-                      Accept
+                      <PackageCheck className="size-3" />
+                      <span>Mark Ready</span>
+                    </Button>
+                  )}
+
+                  {isReadyOrOut && (
+                    <Button
+                      size="sm"
+                      className="h-7 text-xs font-semibold px-2.5 gap-1 bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs"
+                      onClick={(e) => handleDirectDeliver(o.id, e)}
+                      disabled={updateStatus.isPending}
+                      title="Mark order as Delivered"
+                    >
+                      <CheckCircle2 className="size-3" />
+                      <span>Mark Delivered</span>
                     </Button>
                   )}
                 </div>
@@ -951,7 +994,7 @@ export function OrdersPage() {
         />
       ) : (
         /* VIEW: LIVE KITCHEN BOARD (SIMPLIFIED COLUMNS) */
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Column 1: Pending */}
           <div className="rounded-xl border bg-card p-3.5 space-y-3">
             <div className="flex items-center justify-between border-b pb-2">
@@ -987,13 +1030,24 @@ export function OrdersPage() {
                         🟡 Out of Zone
                       </span>
                     )}
-                    <Button
-                      size="sm"
-                      className="w-full h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold mt-1"
-                      onClick={(e) => handleDirectDeliver(order.id, e)}
-                    >
-                      Accept & Deliver ✓
-                    </Button>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 h-7 text-xs font-semibold"
+                        onClick={(e) => handleAcceptOnly(order.id, e)}
+                      >
+                        Accept
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="flex-1 h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white font-semibold gap-1"
+                        onClick={(e) => handleDirectReady(order.id, e)}
+                      >
+                        <PackageCheck className="size-3" />
+                        Ready
+                      </Button>
+                    </div>
                   </div>
                 ))}
               {filtered.filter((o) => o.status === 'pending').length === 0 && (
@@ -1002,16 +1056,16 @@ export function OrdersPage() {
             </div>
           </div>
 
-          {/* Column 2: In Kitchen / In Progress */}
+          {/* Column 2: In Kitchen / Packaging */}
           <div className="rounded-xl border bg-card p-3.5 space-y-3">
             <div className="flex items-center justify-between border-b pb-2">
-              <span className="font-bold text-xs uppercase tracking-wide text-primary flex items-center gap-1.5">
-                <ChefHat className="size-3.5" /> In-Progress ({filtered.filter((o) => ['accepted', 'preparing', 'ready', 'out_for_delivery'].includes(o.status)).length})
+              <span className="font-bold text-xs uppercase tracking-wide text-blue-600 flex items-center gap-1.5">
+                <ChefHat className="size-3.5" /> Kitchen & Packing ({filtered.filter((o) => ['accepted', 'preparing'].includes(o.status)).length})
               </span>
             </div>
             <div className="space-y-2.5">
               {filtered
-                .filter((o) => ['accepted', 'preparing', 'ready', 'out_for_delivery'].includes(o.status))
+                .filter((o) => ['accepted', 'preparing'].includes(o.status))
                 .map((order) => (
                   <div
                     key={order.id}
@@ -1034,24 +1088,71 @@ export function OrdersPage() {
                     </div>
                     <Button
                       size="sm"
-                      className="w-full h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold mt-1"
-                      onClick={(e) => handleDirectDeliver(order.id, e)}
+                      className="w-full h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white font-semibold mt-1 gap-1"
+                      onClick={(e) => handleDirectReady(order.id, e)}
                     >
-                      Mark as Delivered ✓
+                      <PackageCheck className="size-3.5" />
+                      Mark as Ready (Packed) ✓
                     </Button>
                   </div>
                 ))}
-              {filtered.filter((o) => ['accepted', 'preparing', 'ready', 'out_for_delivery'].includes(o.status)).length === 0 && (
-                <p className="text-xs text-muted-foreground text-center py-6 italic">No orders in progress</p>
+              {filtered.filter((o) => ['accepted', 'preparing'].includes(o.status)).length === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-6 italic">No orders in kitchen</p>
               )}
             </div>
           </div>
 
-          {/* Column 3: Delivered */}
+          {/* Column 3: Ready / Packed */}
           <div className="rounded-xl border bg-card p-3.5 space-y-3">
             <div className="flex items-center justify-between border-b pb-2">
               <span className="font-bold text-xs uppercase tracking-wide text-emerald-600 flex items-center gap-1.5">
-                Delivered ({filtered.filter((o) => o.status === 'delivered').length})
+                <PackageCheck className="size-3.5" /> Ready for Delivery ({filtered.filter((o) => ['ready', 'out_for_delivery'].includes(o.status)).length})
+              </span>
+            </div>
+            <div className="space-y-2.5">
+              {filtered
+                .filter((o) => ['ready', 'out_for_delivery'].includes(o.status))
+                .map((order) => (
+                  <div
+                    key={order.id}
+                    onClick={() => setSelectedOrderId(order.id)}
+                    className="rounded-lg border bg-background p-3 space-y-2 cursor-pointer hover:border-primary/50 shadow-2xs transition-all"
+                  >
+                    <div className="flex justify-between items-start">
+                      <span className="font-mono font-bold text-xs">{order.order_number}</span>
+                      <span className="text-[11px] font-mono font-bold text-primary">
+                        {CURRENCY_SYMBOL}{order.total_amount}
+                      </span>
+                    </div>
+                    <p className="text-xs font-semibold">{order.contact_name}</p>
+                    <div className="text-[11px] text-muted-foreground space-y-0.5">
+                      {order.order_items?.map((i) => (
+                        <div key={i.id}>
+                          • {i.item_name} × {i.quantity}
+                        </div>
+                      ))}
+                    </div>
+                    <Button
+                      size="sm"
+                      className="w-full h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold mt-1 gap-1"
+                      onClick={(e) => handleDirectDeliver(order.id, e)}
+                    >
+                      <CheckCircle2 className="size-3.5" />
+                      Mark as Delivered ✓
+                    </Button>
+                  </div>
+                ))}
+              {filtered.filter((o) => ['ready', 'out_for_delivery'].includes(o.status)).length === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-6 italic">No ready orders</p>
+              )}
+            </div>
+          </div>
+
+          {/* Column 4: Delivered */}
+          <div className="rounded-xl border bg-card p-3.5 space-y-3">
+            <div className="flex items-center justify-between border-b pb-2">
+              <span className="font-bold text-xs uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                <CheckCircle2 className="size-3.5 text-emerald-600" /> Delivered ({filtered.filter((o) => o.status === 'delivered').length})
               </span>
             </div>
             <div className="space-y-2.5 max-h-[500px] overflow-y-auto">

@@ -369,7 +369,7 @@ export function CreateOrderDialog({
       })
     }
 
-    const unitPrice = Number(customizingItem.compare_price ?? customizingItem.price)
+    const unitPrice = Number(customizingItem.price)
     const lineTotal = (unitPrice + custTotal) * 1
 
     const newCartItem: SelectedCartItem = {
@@ -398,7 +398,7 @@ export function CreateOrderDialog({
 
   // Directly add item (or specific variant) to cart
   const addSimpleItemToCart = (item: FoodItemForOrder, variant?: Tables<'food_item_variants'>) => {
-    const unitPrice = variant ? Number(variant.price) : Number(item.compare_price ?? item.price)
+    const unitPrice = variant ? Number(variant.price) : Number(item.price)
     const cartKey = variant ? `${item.id}-${variant.id}` : item.id
     const existingIndex = cartItems.findIndex((c) => c.cartId === cartKey && c.selectedOptions.length === 0)
 
@@ -495,56 +495,60 @@ export function CreateOrderDialog({
 
     const mealLabel = mealType === 'dinner' ? 'Dinner' : 'Lunch'
 
-    await createOrder.mutateAsync({
-      userId: selectedCustomerId,
-      contactName: defaultAddress?.contact_name || selectedCustomer?.full_name || undefined,
-      contactPhone: defaultAddress?.contact_phone || selectedCustomer?.phone || undefined,
-      addressId: defaultAddress?.id || undefined,
-      addressLine1: defaultAddress?.address_line1 || undefined,
-      addressLine2: defaultAddress?.address_line2 || undefined,
-      landmark: defaultAddress?.landmark || undefined,
-      city: defaultAddress?.city || undefined,
-      state: defaultAddress?.state || undefined,
-      pincode: defaultAddress?.pincode || undefined,
-      deliveryDate,
-      deliverySlotId: undefined,
-      deliverySlotLabel: mealLabel,
-      paymentMethod: 'cash',
-      paymentStatus: 'pending',
-      paymentReference: undefined,
-      orderStatus,
-      subtotal,
-      deliveryCharge: Number(deliveryCharge || 0),
-      discountAmount: Number(discountAmount || 0),
-      taxAmount: Number(taxAmount || 0),
-      totalAmount,
-      specialInstructions: specialInstructions || undefined,
-      items: cartItems.map((item) => ({
-        food_item_id: item.food_item_id,
-        variant_id: item.variant_id ?? null,
-        product_code: item.product_code ?? null,
-        variant_code: item.variant_code ?? null,
-        variant_sku: item.variant_sku ?? null,
-        variant_snapshot: item.variant_snapshot ?? null,
-        item_name: item.item_name,
-        item_kind: item.item_kind,
-        item_image_url: item.item_image_url,
-        unit_price: item.unit_price,
-        quantity: item.quantity,
-        customizations: item.selectedOptions,
-        customization_total: item.customization_total,
-        line_total: item.line_total,
-        special_instructions: item.special_instructions,
-      })),
-    })
+    try {
+      await createOrder.mutateAsync({
+        userId: selectedCustomerId,
+        contactName: defaultAddress?.contact_name || selectedCustomer?.full_name || undefined,
+        contactPhone: defaultAddress?.contact_phone || selectedCustomer?.phone || undefined,
+        addressId: defaultAddress?.id || undefined,
+        addressLine1: defaultAddress?.address_line1 || undefined,
+        addressLine2: defaultAddress?.address_line2 || undefined,
+        landmark: defaultAddress?.landmark || undefined,
+        city: defaultAddress?.city || undefined,
+        state: defaultAddress?.state || undefined,
+        pincode: defaultAddress?.pincode || undefined,
+        deliveryDate,
+        deliverySlotId: undefined,
+        deliverySlotLabel: mealLabel,
+        paymentMethod: 'cash',
+        paymentStatus: 'pending',
+        paymentReference: undefined,
+        orderStatus,
+        subtotal,
+        deliveryCharge: Number(deliveryCharge || 0),
+        discountAmount: Number(discountAmount || 0),
+        taxAmount: Number(taxAmount || 0),
+        totalAmount,
+        specialInstructions: specialInstructions || undefined,
+        items: cartItems.map((item) => ({
+          food_item_id: item.food_item_id,
+          variant_id: item.variant_id ?? null,
+          product_code: item.product_code ?? null,
+          variant_code: item.variant_code ?? null,
+          variant_sku: item.variant_sku ?? null,
+          variant_snapshot: item.variant_snapshot ?? null,
+          item_name: item.item_name,
+          item_kind: item.item_kind,
+          item_image_url: item.item_image_url,
+          unit_price: item.unit_price,
+          quantity: item.quantity,
+          customizations: item.selectedOptions,
+          customization_total: item.customization_total,
+          line_total: item.line_total,
+          special_instructions: item.special_instructions,
+        })),
+      })
 
-    // Reset and close
-    setCartItems([])
-    setDeliveryCharge(0)
-    setDiscountAmount(0)
-    setTaxAmount(0)
-    setSpecialInstructions('')
-    onOpenChange(false)
+      // Reset and close only on success
+      setCartItems([])
+      setDeliveryCharge(0)
+      setDiscountAmount(0)
+      setTaxAmount(0)
+      setSpecialInstructions('')
+      onOpenChange(false)
+    } catch {
+      // Handled by createOrder mutation onError toast
+    }
   }
 
   return (
@@ -744,7 +748,6 @@ export function CreateOrderDialog({
                 {/* Items List */}
                 <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
                   {filteredFoodItems.map((item) => {
-                    const price = item.compare_price ?? item.price
                     const hasOptions =
                       (item.thali_option_groups && item.thali_option_groups.length > 0) ||
                       (item.item_customizations && item.item_customizations.length > 0)
@@ -779,11 +782,13 @@ export function CreateOrderDialog({
                               </Badge>
                             )}
                           </div>
-                          <p className="text-muted-foreground font-medium">
-                            {CURRENCY_SYMBOL}{price}
-                            {item.compare_price ? (
+                          <p className="font-medium text-foreground">
+                            <span className="font-bold text-sm text-emerald-700">
+                              {CURRENCY_SYMBOL}{item.price}
+                            </span>
+                            {item.compare_price && item.compare_price > item.price ? (
                               <span className="line-through ml-1.5 text-muted-foreground/70 text-[11px]">
-                                {CURRENCY_SYMBOL}{item.price}
+                                {CURRENCY_SYMBOL}{item.compare_price}
                               </span>
                             ) : null}
                           </p>

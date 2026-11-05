@@ -82,10 +82,10 @@ export const ORDER_TIMELINE: OrderStatus[] = [
  * Mirrors the constraints enforced by the database guard triggers.
  */
 export const ALLOWED_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
-  pending: ['accepted', 'rejected', 'cancelled'],
+  pending: ['accepted', 'ready', 'rejected', 'cancelled'],
   accepted: ['ready', 'cancelled'],
   preparing: ['ready', 'cancelled'],
-  ready: ['out_for_delivery', 'cancelled'],
+  ready: ['delivered', 'out_for_delivery', 'cancelled'],
   out_for_delivery: ['delivered', 'cancelled'],
   delivered: [],
   cancelled: [],
@@ -94,6 +94,7 @@ export const ALLOWED_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
 
 export const ADMIN_QUERY_KEYS = {
   dashboardSummary: ['admin', 'dashboard-summary'] as const,
+  receivablesSummary: ['admin', 'receivables-summary'] as const,
   salesSeries: (days: number) => ['admin', 'sales-series', days] as const,
   topSellingItems: (days: number, limit: number) =>
     ['admin', 'top-selling-items', days, limit] as const,
@@ -117,3 +118,12 @@ export const CURRENCY_SYMBOL = '₹'
 export const DATE_FORMAT = 'DD MMM YYYY'
 export const DATE_TIME_FORMAT = 'DD MMM YYYY, h:mm A'
 export const API_DATE_FORMAT = 'YYYY-MM-DD'
+
+/**
+ * Canonical kitchen coordinates (Sarita Apartments, Satya Marg, Bodakdev, Ahmedabad - 380015).
+ * Single authoritative source of truth across web & admin.
+ */
+export const DEFAULT_KITCHEN_LOCATION = {
+  lat: 23.0347092,
+  lng: 72.5153523,
+} as const

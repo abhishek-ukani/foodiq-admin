@@ -56,11 +56,11 @@ function ThaliCard({
           </div>
           <div className="text-right shrink-0">
             <span className="text-base font-bold text-primary tabular-nums">
-              {CURRENCY_SYMBOL}{item.compare_price ?? item.price}
+              {CURRENCY_SYMBOL}{item.price}
             </span>
-            {item.compare_price && (
+            {item.compare_price && item.compare_price > item.price && (
               <span className="text-xs text-muted-foreground line-through block tabular-nums">
-                {CURRENCY_SYMBOL}{item.price}
+                {CURRENCY_SYMBOL}{item.compare_price}
               </span>
             )}
           </div>
@@ -153,8 +153,8 @@ export function ThaliCustomizationPage() {
     thaliItems.length > 0
       ? thaliItems
       : (foodItems || []).filter((item) =>
-          item.name.toLowerCase().includes(searchQuery.toLowerCase()),
-        )
+        item.name.toLowerCase().includes(searchQuery.toLowerCase()),
+      )
 
   const handleOpenCreate = () => {
     setSelectedThali(null)

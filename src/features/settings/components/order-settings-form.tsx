@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
+import { Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
@@ -18,18 +19,22 @@ import {
   orderSettingsSchema,
   type OrderSettingsInput,
 } from '@/features/settings/schemas/settings-schemas'
+import { useSearchParams } from 'react-router-dom'
 import { useConfigValue, useSystemConfig, useUpdateSystemConfig } from '@/features/settings/hooks/use-settings'
 
 const DEFAULTS: OrderSettingsInput = {
   default_min_order_amount: 100,
-  default_delivery_charge: 20,
-  free_delivery_above: 500,
+  default_delivery_charge: 0,
+  free_delivery_above: 0,
   max_advance_days: 7,
   allow_same_day: true,
   auto_accept_orders: false,
+  default_lunch_cutoff_time: '10:00',
+  default_dinner_cutoff_time: '18:00',
 }
 
 export function OrderSettingsForm() {
+  const [, setSearchParams] = useSearchParams()
   const { isPending } = useSystemConfig()
   const value = useConfigValue<OrderSettingsInput>('order_settings')
   const update = useUpdateSystemConfig()
@@ -40,7 +45,12 @@ export function OrderSettingsForm() {
   })
 
   useEffect(() => {
-    if (value) form.reset(value)
+    if (value) {
+      form.reset({
+        ...DEFAULTS,
+        ...value,
+      })
+    }
   }, [value, form])
 
   if (isPending) return <Skeleton className="h-96 w-full rounded-xl" />
@@ -80,42 +90,6 @@ export function OrderSettingsForm() {
               />
               <FormField
                 control={form.control}
-                name="default_delivery_charge"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Default delivery charge (₹)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        min={0}
-                        value={field.value}
-                        onChange={(e) => field.onChange(e.target.valueAsNumber || 0)}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="free_delivery_above"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Free delivery above (₹)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        min={0}
-                        value={field.value}
-                        onChange={(e) => field.onChange(e.target.valueAsNumber || 0)}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
                 name="max_advance_days"
                 render={({ field }) => (
                   <FormItem>
@@ -133,6 +107,79 @@ export function OrderSettingsForm() {
                   </FormItem>
                 )}
               />
+            </div>
+
+            {/* Dynamic Delivery Settings Info Banner */}
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h4 className="text-sm font-semibold text-foreground">Dynamic Delivery Pricing &amp; Pincode Zones</h4>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Delivery charges, free distance radius, per-km rates, and zone pincodes are managed live from database under the <strong>Delivery</strong> tab.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="shrink-0 text-xs font-semibold"
+                onClick={() => setSearchParams({ tab: 'delivery' }, { replace: true })}
+              >
+                Configure Delivery Rules
+              </Button>
+            </div>
+
+            {/* Default Meal Cutoff Times */}
+            <div className="rounded-lg border border-amber-200/80 bg-amber-50/50 p-4 space-y-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Clock className="size-4 text-amber-700" aria-hidden />
+                  <h4 className="text-sm font-semibold text-amber-950">
+                    Default Kitchen Order Cutoff Times
+                  </h4>
+                </div>
+                <p className="text-muted-foreground text-xs mt-0.5">
+                  Applied as default ordering cutoffs for daily lunch and dinner menus and storefront availability.
+                </p>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2 pt-1">
+                <FormField
+                  control={form.control}
+                  name="default_lunch_cutoff_time"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs font-semibold text-foreground">Default Lunch Cutoff</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="time"
+                          className="bg-white min-h-[44px]"
+                          value={field.value ?? '10:00'}
+                          onChange={(e) => field.onChange(e.target.value)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="default_dinner_cutoff_time"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs font-semibold text-foreground">Default Dinner Cutoff</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="time"
+                          className="bg-white min-h-[44px]"
+                          value={field.value ?? '18:00'}
+                          onChange={(e) => field.onChange(e.target.value)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
             </div>
 
             <div className="flex items-center justify-between rounded-lg border p-3">

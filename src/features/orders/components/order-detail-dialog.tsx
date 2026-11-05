@@ -15,6 +15,8 @@ import {
   CheckCircle2,
   MessageCircle,
   ChefHat,
+  PackageCheck,
+  ReceiptText,
 } from 'lucide-react'
 import {
   Dialog,
@@ -23,6 +25,7 @@ import {
   DialogFooter,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { CollectPaymentDialog } from '@/features/customers/components/collect-payment-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -54,6 +57,7 @@ export function OrderDetailDialog({
   const [showCancel, setShowCancel] = useState(false)
   const [customCharge, setCustomCharge] = useState<number>(0)
   const [printOpen, setPrintOpen] = useState(false)
+  const [collectOpen, setCollectOpen] = useState(false)
 
   useEffect(() => {
     if (order) {
@@ -242,13 +246,27 @@ export function OrderDetailDialog({
 
                   <div>
                     <span className="text-muted-foreground font-medium block mb-0.5">Payment Status:</span>
-                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-muted font-medium text-xs">
-                      <span className="capitalize">{order.payment_method || 'CASH'}</span>
-                      <span className="text-muted-foreground">·</span>
-                      <span className={order.payment_status === 'paid' ? 'text-emerald-600 font-semibold uppercase' : 'text-amber-600 font-semibold capitalize'}>
-                        {order.payment_status || 'Pending'}
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-muted font-medium text-xs">
+                        <span className="capitalize">{order.payment_method || 'CASH'}</span>
+                        <span className="text-muted-foreground">·</span>
+                        <span className={order.payment_status === 'paid' ? 'text-emerald-600 font-semibold uppercase' : 'text-amber-600 font-semibold capitalize'}>
+                          {order.payment_status || 'Pending'}
+                        </span>
                       </span>
-                    </span>
+
+                      {order.payment_status !== 'paid' && order.status !== 'cancelled' && order.status !== 'rejected' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setCollectOpen(true)}
+                          className="h-6 px-2 text-[11px] font-semibold border-amber-500/40 text-amber-700 dark:text-amber-300 hover:bg-amber-500/10 gap-1"
+                        >
+                          <ReceiptText className="size-3" />
+                          <span>Collect</span>
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -647,24 +665,37 @@ export function OrderDetailDialog({
                         disabled={updateStatus.isPending}
                         onClick={() => updateStatus.mutate({ id: order.id, status: 'accepted' })}
                       >
-                        Accept Only
+                        Accept Order
                       </Button>
                       <Button
                         size="sm"
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-4 h-9 gap-1.5"
+                        className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 h-9 gap-1.5 shadow-xs"
                         disabled={updateStatus.isPending}
-                        onClick={() => updateStatus.mutate({ id: order.id, status: 'delivered' })}
+                        onClick={() => updateStatus.mutate({ id: order.id, status: 'ready' })}
+                        title="Accept order and mark directly as Ready/Packed"
                       >
-                        <CheckCircle2 className="size-4" />
-                        Accept & Deliver ✓
+                        <PackageCheck className="size-4" />
+                        Accept & Mark Ready ✓
                       </Button>
                     </>
-                  ) : ['accepted', 'preparing', 'ready', 'out_for_delivery'].includes(order.status) ? (
+                  ) : ['accepted', 'preparing'].includes(order.status) ? (
                     <Button
                       size="sm"
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-5 h-9 gap-1.5"
+                      className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 h-9 gap-1.5 shadow-xs"
+                      disabled={updateStatus.isPending}
+                      onClick={() => updateStatus.mutate({ id: order.id, status: 'ready' })}
+                      title="Tick off order packaging: meals are packed in containers and ready for pickup/delivery"
+                    >
+                      <PackageCheck className="size-4" />
+                      Mark as Ready (Packed) ✓
+                    </Button>
+                  ) : ['ready', 'out_for_delivery'].includes(order.status) ? (
+                    <Button
+                      size="sm"
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-5 h-9 gap-1.5 shadow-xs"
                       disabled={updateStatus.isPending}
                       onClick={() => updateStatus.mutate({ id: order.id, status: 'delivered' })}
+                      title="Complete order: Handed over or delivered to customer"
                     >
                       <CheckCircle2 className="size-4" />
                       Mark as Delivered ✓
@@ -687,6 +718,23 @@ export function OrderDetailDialog({
         open={printOpen}
         onOpenChange={setPrintOpen}
         order={order}
+      />
+
+      {/* Collect Payment Dialog */}
+      <CollectPaymentDialog
+        open={collectOpen}
+        onOpenChange={setCollectOpen}
+        customerName={order.contact_name}
+        customerPhone={order.contact_phone}
+        orders={[
+          {
+            id: order.id,
+            order_number: order.order_number,
+            total_amount: Number(order.total_amount || 0),
+            placed_at: order.placed_at,
+            delivery_date: order.delivery_date,
+          },
+        ]}
       />
     </>
   )

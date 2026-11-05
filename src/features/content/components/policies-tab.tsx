@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FileText } from 'lucide-react'
+import { CheckCircle2, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -17,38 +17,66 @@ function PolicyEditor({ policy }: { policy: Tables<'policies'> }) {
   const dirty = title !== policy.title || content !== policy.content
 
   return (
-    <Card>
-      <CardContent className="space-y-3 pt-6">
-        <div className="flex items-center justify-between">
-          <Badge variant="outline" className="capitalize">
+    <Card className="overflow-hidden border border-border shadow-xs">
+      <CardContent className="space-y-4 pt-6">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-3">
+          <Badge variant="outline" className="capitalize font-semibold text-xs tracking-wider">
             {policy.slug}
           </Badge>
           <div className="flex items-center gap-2">
-            <span className="text-muted-foreground text-xs">
-              {policy.is_published ? 'Published' : 'Unpublished'}
+            <span className="text-xs text-muted-foreground font-medium">
+              {policy.is_published ? (
+                <span className="inline-flex items-center gap-1 text-emerald-600 font-semibold">
+                  <CheckCircle2 className="size-3.5" /> Published
+                </span>
+              ) : (
+                'Unpublished'
+              )}
             </span>
             <Switch
               checked={policy.is_published}
+              aria-label={`Toggle published state for ${policy.title}`}
               onCheckedChange={(checked) =>
                 update.mutate({ id: policy.id, input: { is_published: checked } })
               }
             />
           </div>
         </div>
-        <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" />
-        <Textarea
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          rows={8}
-          placeholder="Policy content…"
-        />
-        <Button
-          size="sm"
-          disabled={!dirty || update.isPending}
-          onClick={() => update.mutate({ id: policy.id, input: { title, content } })}
-        >
-          {update.isPending ? 'Saving…' : 'Save changes'}
-        </Button>
+
+        <div className="space-y-1">
+          <label className="text-xs font-semibold text-muted-foreground">Document Title</label>
+          <Input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Policy Title"
+          />
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-xs font-semibold text-muted-foreground">Content</label>
+          <Textarea
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            rows={8}
+            className="font-mono text-xs leading-relaxed"
+            placeholder="Policy content…"
+          />
+        </div>
+
+        <div className="flex justify-end pt-2">
+          <Button
+            size="sm"
+            disabled={!dirty || update.isPending}
+            onClick={() =>
+              update.mutate({
+                id: policy.id,
+                input: { title, content },
+              })
+            }
+          >
+            {update.isPending ? 'Saving…' : 'Save changes'}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   )
@@ -69,9 +97,54 @@ export function PoliciesTab() {
 
   if (!policies?.length) {
     return (
-      <div className="text-muted-foreground flex flex-col items-center gap-2 py-10 text-center">
-        <FileText className="size-8" aria-hidden />
-        No policy pages found.
+      <div className="rounded-2xl border border-border bg-card p-6 sm:p-8 space-y-6">
+        <div className="flex items-center gap-3">
+          <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <ShieldCheck className="size-5" />
+          </div>
+          <div>
+            <h3 className="font-display text-lg font-bold text-foreground">
+              Policies are 100% Static Frontend Pages
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              Zero database storage • High performance • Instant loading
+            </p>
+          </div>
+        </div>
+
+        <p className="text-sm text-foreground/80 leading-relaxed">
+          The legal pages for FoodIQ are served directly from the static web bundle for maximum speed, security, and offline reliability. There are no policy records stored in the database.
+        </p>
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="rounded-xl border p-4 bg-muted/30">
+            <h4 className="font-semibold text-sm text-foreground mb-1">Privacy Policy</h4>
+            <p className="text-xs text-muted-foreground mb-3">
+              DPDP Act 2023 compliance, partner disclosures, zero data selling, and user rights.
+            </p>
+            <span className="text-[11px] font-mono text-primary font-medium">/privacy-policy</span>
+          </div>
+
+          <div className="rounded-xl border p-4 bg-muted/30">
+            <h4 className="font-semibold text-sm text-foreground mb-1">Terms &amp; Conditions</h4>
+            <p className="text-xs text-muted-foreground mb-3">
+              Kitchen standards, twice-daily fresh rasoi, order cutoffs (10 AM / 6 PM), and COD rules.
+            </p>
+            <span className="text-[11px] font-mono text-primary font-medium">/terms</span>
+          </div>
+
+          <div className="rounded-xl border p-4 bg-muted/30">
+            <h4 className="font-semibold text-sm text-foreground mb-1">Refund &amp; Cancellation</h4>
+            <p className="text-xs text-muted-foreground mb-3">
+              Cancellation before cooking, packaging replacement within 2 hours, and UPI timeline.
+            </p>
+            <span className="text-[11px] font-mono text-primary font-medium">/refund-policy</span>
+          </div>
+        </div>
+
+        <div className="text-xs text-muted-foreground rounded-lg border border-dashed p-3 font-mono">
+          📁 Code location: foodIQ_web/src/features/static-pages/data/policies-data.ts
+        </div>
       </div>
     )
   }

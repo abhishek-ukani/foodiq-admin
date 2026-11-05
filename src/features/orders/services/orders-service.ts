@@ -179,7 +179,10 @@ export async function fetchThaliOptionGroupsForAdminOrder(
   let mealType = 'lunch'
   if (publishedMenus && publishedMenus.length > 0) {
     const nowStr = new Date().toTimeString().substring(0, 5)
-    const openMenu = publishedMenus.find((m) => !m.cutoff_time || nowStr < m.cutoff_time.substring(0, 5))
+    const openMenu = publishedMenus.find((m) => {
+      const cutoff = m.cutoff_time || (m.meal_type === 'lunch' ? '10:00:00' : '18:00:00')
+      return nowStr < cutoff.substring(0, 5)
+    })
     mealType = openMenu ? openMenu.meal_type : publishedMenus[0].meal_type
   }
 
@@ -374,39 +377,97 @@ export async function createAdminOrder(input: CreateAdminOrderInput): Promise<Ta
     placed_at: new Date().toISOString(),
   }
 
-  const { data: createdOrder, error: orderErr } = await supabase
-    .from('orders')
-    .insert(orderInsert)
-    .select()
-    .single()
+  let currentOrderInsert: Record<string, any> = { ...orderInsert }
+  let createdOrder: Tables<'orders'> | null = null
+  let orderErr: any = null
+
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const res = await supabase
+      .from('orders')
+      .insert(currentOrderInsert as any)
+      .select()
+      .single()
+
+    if (!res.error && res.data) {
+      createdOrder = res.data
+      orderErr = null
+      break
+    }
+
+    orderErr = res.error
+    const match = res.error?.message?.match(/Could not find the '([^']+)' column of 'orders' in the schema cache/)
+    if (match && match[1]) {
+      const missingColumn = match[1]
+      const { [missingColumn]: _removed, ...rest } = currentOrderInsert
+      currentOrderInsert = rest
+      continue
+    }
+
+    break
+  }
 
   if (orderErr || !createdOrder) {
     throw new Error(orderErr?.message || 'Failed to insert order record')
   }
 
   // Insert order items
-  const itemsToInsert: TablesInsert<'order_items'>[] = input.items.map((item) => ({
-    order_id: createdOrder.id,
-    food_item_id: item.food_item_id,
-    variant_id: item.variant_id ?? null,
-    product_code: item.product_code ?? null,
-    variant_code: item.variant_code ?? null,
-    variant_sku: item.variant_sku ?? null,
-    variant_snapshot: item.variant_snapshot ?? null,
-    item_name: item.item_name,
-    item_kind: item.item_kind,
-    item_image_url: item.item_image_url ?? null,
-    unit_price: item.unit_price,
-    quantity: item.quantity,
-    customizations: item.customizations || [],
-    customization_total: item.customization_total || 0,
-    line_total: item.line_total,
-    special_instructions: item.special_instructions ?? null,
-  }))
+  // Note: product_code, variant_code, and variant_sku are not present in the remote order_items schema.
+  // We only include guaranteed columns and use dynamic retry fallback for any unmigrated columns.
+  const baseItems: Record<string, any>[] = input.items.map((item) => {
+    const row: Record<string, any> = {
+      order_id: createdOrder.id,
+      food_item_id: item.food_item_id,
+      variant_id: item.variant_id ?? null,
+      item_name: item.item_name,
+      item_kind: item.item_kind,
+      item_image_url: item.item_image_url ?? null,
+      unit_price: item.unit_price,
+      quantity: item.quantity,
+      customizations: item.customizations || [],
+      customization_total: item.customization_total || 0,
+      line_total: item.line_total,
+      special_instructions: item.special_instructions ?? null,
+    }
+    if (item.variant_snapshot) {
+      row.variant_snapshot = item.variant_snapshot
+    }
+    return row
+  })
 
-  const { error: itemsErr } = await supabase.from('order_items').insert(itemsToInsert)
-  if (itemsErr) {
-    throw new Error(`Order created but failed to save items: ${itemsErr.message}`)
+  let currentItems = baseItems
+  let insertSuccess = false
+  let lastError: any = null
+
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const { error: itemsErr } = await supabase.from('order_items').insert(currentItems as any)
+    if (!itemsErr) {
+      insertSuccess = true
+      break
+    }
+
+    lastError = itemsErr
+    // If error is PGRST204 (column not found in schema cache), strip the offending column and retry
+    const match = itemsErr.message?.match(/Could not find the '([^']+)' column of 'order_items' in the schema cache/)
+    if (match && match[1]) {
+      const missingColumn = match[1]
+      currentItems = currentItems.map((item) => {
+        const { [missingColumn]: _removed, ...rest } = item
+        return rest
+      })
+      continue
+    }
+
+    break
+  }
+
+  if (!insertSuccess) {
+    // Clean up created order to avoid orphaned order
+    try {
+      await supabase.from('orders').delete().eq('id', createdOrder.id)
+    } catch (cleanupErr) {
+      console.warn('Failed to clean up orphaned order after item insert failure:', cleanupErr)
+    }
+    throw new Error(`Order created but failed to save items: ${lastError?.message || 'Unknown error'}`)
   }
 
   // Insert audit status history
@@ -423,6 +484,30 @@ export async function createAdminOrder(input: CreateAdminOrderInput): Promise<Ta
       incrementMenuItemSoldQty(item.food_item_id, input.deliveryDate, item.quantity),
     ),
   )
+
+  // Background sync customer's total_orders and total_spent in profiles table
+  if (input.userId) {
+    (async () => {
+      try {
+        const { data: userOrders } = await supabase
+          .from('orders')
+          .select('total_amount, status')
+          .eq('user_id', input.userId)
+        if (userOrders) {
+          const valid = userOrders.filter((o) => o.status !== 'cancelled' && o.status !== 'rejected')
+          await supabase
+            .from('profiles')
+            .update({
+              total_orders: valid.length,
+              total_spent: valid.reduce((sum, o) => sum + Number(o.total_amount || 0), 0),
+            })
+            .eq('id', input.userId)
+        }
+      } catch {
+        // Non-critical background sync
+      }
+    })()
+  }
 
   return createdOrder
 }
