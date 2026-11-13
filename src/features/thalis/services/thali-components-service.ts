@@ -104,6 +104,8 @@ export function useAddThaliComponent() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: QUERY_KEY })
       qc.invalidateQueries({ queryKey: ['admin', 'thali-option-groups'] })
+      qc.invalidateQueries({ queryKey: ['admin', 'daily-menu-items'] })
+      qc.invalidateQueries({ queryKey: ['admin', 'daily-menu'] })
       broadcastCatalogUpdate('thali_component_added')
       toast.success('Item added to global Thali components')
     },
@@ -119,6 +121,8 @@ export function useToggleThaliComponent() {
     onSuccess: (_, { is_active }) => {
       qc.invalidateQueries({ queryKey: QUERY_KEY })
       qc.invalidateQueries({ queryKey: ['admin', 'thali-option-groups'] })
+      qc.invalidateQueries({ queryKey: ['admin', 'daily-menu-items'] })
+      qc.invalidateQueries({ queryKey: ['admin', 'daily-menu'] })
       broadcastCatalogUpdate('thali_component_toggled')
       toast.success(is_active ? 'Item activated for all Thalis' : 'Item marked Out of Stock for all Thalis')
     },
@@ -133,6 +137,8 @@ export function useRemoveThaliComponent() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: QUERY_KEY })
       qc.invalidateQueries({ queryKey: ['admin', 'thali-option-groups'] })
+      qc.invalidateQueries({ queryKey: ['admin', 'daily-menu-items'] })
+      qc.invalidateQueries({ queryKey: ['admin', 'daily-menu'] })
       broadcastCatalogUpdate('thali_component_removed')
       toast.success('Item removed from global Thali components')
     },

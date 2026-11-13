@@ -58,6 +58,49 @@ export async function autoPopulateDailyMenuWithActiveItems(dailyMenuId: string):
   return itemsToInsert.length
 }
 
+export async function syncGlobalComponentsToMenu(dailyMenuId: string): Promise<number> {
+  try {
+    const { data: globalComps, error: compErr } = await supabase
+      .from('thali_components')
+      .select('food_item_id')
+      .eq('is_active', true)
+
+    if (compErr || !globalComps || globalComps.length === 0) return 0
+
+    const { data: existingItems, error: existErr } = await supabase
+      .from('daily_menu_items')
+      .select('food_item_id')
+      .eq('daily_menu_id', dailyMenuId)
+
+    if (existErr) return 0
+
+    const existingIds = new Set((existingItems || []).map((i) => i.food_item_id))
+    const missingGlobal = globalComps.filter((g) => !existingIds.has(g.food_item_id))
+
+    if (missingGlobal.length === 0) return 0
+
+    const toInsert = missingGlobal.map((g) => ({
+      daily_menu_id: dailyMenuId,
+      food_item_id: g.food_item_id,
+      is_available: true,
+      is_special: false,
+      is_standalone_sale: false,
+      is_thali_option: true,
+      display_order: 10,
+    }))
+
+    const { error: insertErr } = await supabase.from('daily_menu_items').insert(toInsert)
+    if (insertErr) {
+      console.warn('Could not auto-sync global components into daily menu:', insertErr)
+      return 0
+    }
+    return toInsert.length
+  } catch (err) {
+    console.warn('syncGlobalComponentsToMenu error:', err)
+    return 0
+  }
+}
+
 /** Gets today's menu row for (date, meal), creating an unpublished one if it doesn't exist yet, and populating active items by default. */
 export async function ensureDailyMenu(menuDate: string, mealType: MealType): Promise<Tables<'daily_menus'>> {
   const branch_id = await getDefaultBranchId()
@@ -72,6 +115,7 @@ export async function ensureDailyMenu(menuDate: string, mealType: MealType): Pro
 
   if (fetchError) throw fetchError
   if (existing) {
+    await syncGlobalComponentsToMenu(existing.id)
     return existing
   }
 
@@ -108,6 +152,7 @@ export async function ensureDailyMenu(menuDate: string, mealType: MealType): Pro
   if (insertError) throw insertError
 
   await autoPopulateDailyMenuWithActiveItems(created.id)
+  await syncGlobalComponentsToMenu(created.id)
   return created
 }
 

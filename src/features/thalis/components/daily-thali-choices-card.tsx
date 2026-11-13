@@ -4,6 +4,8 @@ import {
   CalendarDays,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   Clock,
   Package,
   Plus,
@@ -28,7 +30,6 @@ import { EmptyState } from '@/components/common/empty-state'
 import { useFoodItems } from '@/features/food-items/hooks/use-food-items'
 import {
   useAddMenuItem,
-  useAutoPopulateMenu,
   useDailyMenu,
   useMenuItems,
   useRemoveMenuItem,
@@ -493,6 +494,7 @@ export function DailyThaliChoicesCard() {
   const todayStr = dayjs().format('YYYY-MM-DD')
   const [date, setDate] = useState(todayStr)
   const [meal, setMeal] = useState<MealType>('lunch')
+  const dateInputRef = useRef<HTMLInputElement>(null)
 
   const orderSettings = useConfigValue<OrderSettingsInput>('order_settings')
   const defaultMealCutoff =
@@ -506,7 +508,6 @@ export function DailyThaliChoicesCard() {
   const { data: allFoodItems } = useFoodItems()
   const { data: globalComponents } = useThaliComponents()
 
-  const autoPopulate = useAutoPopulateMenu(menu?.id)
   const addItem = useAddMenuItem(menu?.id)
   const removeItem = useRemoveMenuItem(menu?.id)
   const toggleAvailable = useToggleMenuItemAvailable(menu?.id)
@@ -516,6 +517,7 @@ export function DailyThaliChoicesCard() {
   const addToGlobal = useAddThaliComponent()
   const removeFromGlobal = useRemoveThaliComponent()
   const updateInventory = useUpdateMenuItemInventory(menu?.id)
+
 
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null)
   const [openSectionDropdown, setOpenSectionDropdown] = useState<ThaliComponentCategoryType | null>(null)
@@ -644,17 +646,59 @@ export function DailyThaliChoicesCard() {
             </CardDescription>
           </div>
 
-          {/* Controls: Date, Meal tabs, Auto-Populate */}
+          {/* Controls: Date, Meal tabs */}
           <div className="flex flex-wrap items-center gap-2.5">
-            <div className="flex items-center gap-1.5 rounded-lg border bg-background px-2.5 py-1">
-              <CalendarDays className="text-muted-foreground size-4" aria-hidden />
-              <Input
-                type="date"
-                min={todayStr}
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-32 sm:w-36 h-8 text-xs border-0 p-0 shadow-none focus-visible:ring-0"
-              />
+            {/* Date Navigator with quick prev/next and showPicker */}
+            <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="size-8 text-muted-foreground hover:text-foreground shrink-0 cursor-pointer"
+                onClick={() => setDate(dayjs(date).subtract(1, 'day').format('YYYY-MM-DD'))}
+                title="Previous day"
+              >
+                <ChevronLeft className="size-3.5" />
+              </Button>
+
+              <div
+                onClick={() => dateInputRef.current?.showPicker?.()}
+                className="flex items-center gap-1.5 rounded-lg border bg-background px-2.5 py-1 cursor-pointer hover:border-primary/50 transition-colors shadow-xs"
+                title="Click to open calendar"
+              >
+                <CalendarDays className="text-primary size-4 shrink-0 pointer-events-none" aria-hidden />
+                <Input
+                  ref={dateInputRef}
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  className="w-32 h-7 text-xs font-medium border-0 p-0 shadow-none focus-visible:ring-0 cursor-pointer bg-transparent"
+                />
+              </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="size-8 text-muted-foreground hover:text-foreground shrink-0 cursor-pointer"
+                onClick={() => setDate(dayjs(date).add(1, 'day').format('YYYY-MM-DD'))}
+                title="Next day"
+              >
+                <ChevronRight className="size-3.5" />
+              </Button>
+
+              {date !== todayStr && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 text-[11px] px-2 text-primary font-medium hover:bg-primary/10 cursor-pointer"
+                  onClick={() => setDate(todayStr)}
+                  title="Return to today"
+                >
+                  Today
+                </Button>
+              )}
             </div>
 
             <Tabs value={meal} onValueChange={(v) => setMeal(v as MealType)}>
@@ -670,33 +714,6 @@ export function DailyThaliChoicesCard() {
                 ))}
               </TabsList>
             </Tabs>
-
-            <Button
-              disabled={lockStatus.isLocked || !menu || autoPopulate.isPending}
-              variant="outline"
-              size="sm"
-              onClick={() => autoPopulate.mutate()}
-              className="gap-1.5 text-xs h-9 min-h-[36px] bg-background hover:bg-emerald-50 hover:text-emerald-900 border-emerald-200"
-            >
-              <Sparkles className="size-3.5 text-amber-500" aria-hidden />
-              Auto-Populate
-            </Button>
-
-            {menu && (
-              <div className="flex items-center gap-2 rounded-lg border border-border/80 bg-muted/30 px-3 py-1 text-xs">
-                <span className="font-medium text-foreground">
-                  {menu.is_published ? 'Published' : 'Draft'}
-                </span>
-                <Switch
-                  checked={menu.is_published}
-                  disabled={lockStatus.isLocked || togglePublish.isPending}
-                  onCheckedChange={(checked) =>
-                    togglePublish.mutate({ id: menu.id, is_published: checked })
-                  }
-                  aria-label="Toggle menu published status"
-                />
-              </div>
-            )}
           </div>
         </div>
       </CardHeader>
