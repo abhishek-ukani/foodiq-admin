@@ -8,6 +8,9 @@ import {
   Sparkles,
   Globe,
   Pin,
+  Search,
+  Check,
+  X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -115,6 +118,8 @@ export function ThaliEditorSheet({
   const [itemLabel, setItemLabel] = useState('')
   const [itemPriceDelta, setItemPriceDelta] = useState(0)
   const [itemIsDefault, setItemIsDefault] = useState(false)
+  const [foodItemSearchQuery, setFoodItemSearchQuery] = useState('')
+  const [isSearchOpen, setIsSearchOpen] = useState(false)
 
   const [adminMealType, setAdminMealType] = useState<'lunch' | 'dinner'>('lunch')
 
@@ -129,6 +134,24 @@ export function ThaliEditorSheet({
     const list = Array.isArray(globalComponents) ? globalComponents : []
     return new Set(list.filter((c) => (c as any).is_active !== false).map((c) => c.food_item_id))
   }, [globalComponents])
+
+  const nonThaliItems = useMemo(() => {
+    return (foodItemsCatalog || []).filter((f) => f.kind !== 'thali')
+  }, [foodItemsCatalog])
+
+  const filteredFoodItems = useMemo(() => {
+    const q = foodItemSearchQuery.trim().toLowerCase()
+    if (!q) {
+      return []
+    }
+    return nonThaliItems
+      .filter((item) => {
+        const nameMatch = item.name.toLowerCase().includes(q)
+        const catMatch = item.categories?.name?.toLowerCase().includes(q)
+        return nameMatch || catMatch
+      })
+      .slice(0, 5)
+  }, [nonThaliItems, foodItemSearchQuery])
 
   const createGroup = useCreateThaliOptionGroup()
   const updateGroup = useUpdateThaliOptionGroup()
@@ -260,6 +283,8 @@ export function ThaliEditorSheet({
     const targetCatId = targetCategoryId && targetCategoryId !== 'none' ? targetCategoryId : null
     const targetCat = (selectedCatObj as any)?.category_type || targetCategoryType || inferCatType(groupName) || 'general'
 
+    const isDaily = groupType === 'daily_menu_choice'
+
     if (editingGroup) {
       updateGroup.mutate(
         {
@@ -268,6 +293,7 @@ export function ThaliEditorSheet({
             name: groupName.trim(),
             description: groupDescription.trim() || null,
             group_type: groupType,
+            is_daily_menu_source: isDaily,
             target_category_type: targetCat,
             target_category_id: targetCatId,
             min_select: minSelect,
@@ -283,6 +309,7 @@ export function ThaliEditorSheet({
         name: groupName.trim(),
         description: groupDescription.trim() || null,
         group_type: groupType,
+        is_daily_menu_source: isDaily,
         target_category_type: targetCat,
         target_category_id: targetCatId,
         min_select: minSelect,
@@ -299,6 +326,8 @@ export function ThaliEditorSheet({
     setItemLabel('')
     setItemPriceDelta(0)
     setItemIsDefault(false)
+    setFoodItemSearchQuery('')
+    setIsSearchOpen(false)
     setItemDialogOpen(true)
   }
 
@@ -319,6 +348,8 @@ export function ThaliEditorSheet({
   }
 
   const getMatchingGlobalOrDailyItems = (grp: ThaliOptionGroupWithItems) => {
+    // Only daily_menu_choice groups pull dynamic daily/global items
+    if (grp.group_type !== 'daily_menu_choice') return []
     if (!foodItemsCatalog) return []
 
     const dailyList = Array.isArray(dailyMenuItems) ? dailyMenuItems : []
@@ -329,8 +360,10 @@ export function ThaliEditorSheet({
         .map((mi) => mi.food_item_id)
     )
 
-    // Automatically include items that are present in today's Daily Items Manager list
-    const activeCatalog = foodItemsCatalog.filter((item) => dailyFoodItemIds.has(item.id))
+    // Include items that are either marked as Global Components OR present in today's daily menu
+    const activeCatalog = foodItemsCatalog.filter(
+      (item) => dailyFoodItemIds.has(item.id) || globalFoodItemIds.has(item.id)
+    )
 
     const targetCatId = (grp as any).target_category_id
     const targetCatType = (grp as any).target_category_type
@@ -624,13 +657,21 @@ export function ThaliEditorSheet({
                           className={
                             grp.group_type === 'daily_menu_choice'
                               ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 text-[11px] font-medium'
-                              : 'bg-primary/10 text-primary text-[11px] font-medium'
+                              : grp.group_type === 'optional_addon'
+                                ? 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 text-[11px] font-medium'
+                                : 'bg-primary/10 text-primary text-[11px] font-medium'
                           }
                         >
-                          {grp.group_type === 'daily_menu_choice' ? 'Daily Menu Choice' : 'Static Choice'}
+                          {grp.group_type === 'daily_menu_choice'
+                            ? 'Daily Menu Choice'
+                            : grp.group_type === 'optional_addon'
+                              ? 'Optional Add-on'
+                              : 'Static Choice'}
                         </Badge>
                         <Badge variant="outline" className="text-[11px] font-normal text-muted-foreground">
-                          Select {grp.max_select}
+                          {grp.group_type === 'optional_addon' || grp.min_select === 0
+                            ? `Up to ${grp.max_select}`
+                            : `Select ${grp.max_select}`}
                         </Badge>
                       </div>
 
@@ -655,7 +696,7 @@ export function ThaliEditorSheet({
                     </div>
 
                     {/* SECTION 1: GLOBAL / DAILY ITEMS MANAGEMENT */}
-                    {(grp.group_type === 'daily_menu_choice' || getMatchingGlobalOrDailyItems(grp).length > 0) && (
+                    {grp.group_type === 'daily_menu_choice' && (
                       <div className="space-y-2 border-t pt-2.5">
                         <div className="flex items-center justify-between text-xs">
                           <span className="font-semibold text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
@@ -854,7 +895,20 @@ export function ThaliEditorSheet({
 
             <div className="space-y-1">
               <Label className="text-xs">Type</Label>
-              <Select value={groupType} onValueChange={(v: any) => setGroupType(v)}>
+              <Select
+                value={groupType}
+                onValueChange={(v: any) => {
+                  setGroupType(v)
+                  if (v === 'optional_addon') {
+                    setMinSelect(0)
+                    setIsRequired(false)
+                    setTargetCategoryId('none')
+                  } else if (v === 'daily_menu_choice') {
+                    setMinSelect(1)
+                    setIsRequired(true)
+                  }
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -923,40 +977,105 @@ export function ThaliEditorSheet({
 
       {/* Option Item Create Dialog */}
       <Dialog open={itemDialogOpen} onOpenChange={setItemDialogOpen}>
-        <DialogContent className="sm:max-w-sm">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Add Option Item</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-3 py-1">
-            <div className="space-y-1">
-              <Label className="text-xs">Select from Catalog (optional)</Label>
-              <Select
-                value={selectedFoodItemId}
-                onValueChange={(id) => {
-                  setSelectedFoodItemId(id)
-                  const picked = foodItemsCatalog?.find((f) => f.id === id)
-                  if (picked) {
-                    setItemLabel(picked.name)
-                  }
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Pick item (Roti, Bhakri, Chhas, etc.)..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {(foodItemsCatalog || [])
-                    .filter((f) => f.kind !== 'thali')
-                    .map((item) => (
-                      <SelectItem key={item.id} value={item.id}>
-                        <span>{item.name}</span>
-                        {item.categories?.name ? (
-                          <span className="ml-1.5 text-xs text-muted-foreground">({item.categories.name})</span>
-                        ) : null}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
+            <div className="space-y-1.5 relative">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-medium">Food Item</Label>
+                {selectedFoodItemId && (
+                  <span className="text-[10px] text-primary font-medium flex items-center gap-1">
+                    <Check className="size-3" /> Linked
+                  </span>
+                )}
+              </div>
+
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+                <Input
+                  className="pl-8 pr-8 h-9 text-xs"
+                  placeholder="Search food item (e.g. Bhakhari, Dal, Chaas)..."
+                  value={foodItemSearchQuery}
+                  onFocus={() => {
+                    if (foodItemSearchQuery.trim()) {
+                      setIsSearchOpen(true)
+                    }
+                  }}
+                  onChange={(e) => {
+                    setFoodItemSearchQuery(e.target.value)
+                    setIsSearchOpen(true)
+                    if (selectedFoodItemId) {
+                      setSelectedFoodItemId('')
+                    }
+                  }}
+                />
+                {foodItemSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFoodItemSearchQuery('')
+                      setSelectedFoodItemId('')
+                      setItemLabel('')
+                      setIsSearchOpen(false)
+                    }}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 cursor-pointer"
+                    title="Clear search"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Search Results Dropdown: Max 5 top results, ONLY shown while searching */}
+              {isSearchOpen && foodItemSearchQuery.trim().length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 z-50 border rounded-md shadow-lg bg-popover text-popover-foreground divide-y overflow-hidden text-xs max-h-60 overflow-y-auto">
+                  {filteredFoodItems.length > 0 ? (
+                    filteredFoodItems.map((item) => {
+                      const isSelected = selectedFoodItemId === item.id
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onMouseDown={(e) => {
+                            e.preventDefault()
+                            setSelectedFoodItemId(item.id)
+                            setItemLabel(item.name)
+                            setFoodItemSearchQuery(item.name)
+                            setIsSearchOpen(false)
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-2.5 min-h-[44px] text-left transition-colors hover:bg-muted/80 cursor-pointer ${
+                            isSelected ? 'bg-primary/10 text-primary font-medium' : ''
+                          }`}
+                        >
+                          <div className="flex flex-col min-w-0 pr-2">
+                            <span className="truncate font-medium">{item.name}</span>
+                            {item.categories?.name && (
+                              <span className="text-[10px] text-muted-foreground truncate">
+                                {item.categories.name}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {item.price ? (
+                              <span className="text-xs text-muted-foreground font-mono">
+                                {CURRENCY_SYMBOL}{item.price}
+                              </span>
+                            ) : null}
+                            {isSelected && <Check className="size-4 text-primary" />}
+                          </div>
+                        </button>
+                      )
+                    })
+                  ) : (
+                    <div className="py-3 px-2 text-center text-xs text-muted-foreground">
+                      No food items match "{foodItemSearchQuery}"
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="space-y-1">
