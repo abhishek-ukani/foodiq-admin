@@ -418,11 +418,40 @@ export function OrdersPage() {
         header: 'Customer & Zone',
         cell: ({ row }) => {
           const o = row.original
+          const isVerified = Boolean(o.customer_profile?.is_verified)
+          const totalOrders = o.customer_profile?.total_orders ?? 1
+          const isNewCustomer = totalOrders <= 1
+
           return (
             <div className="space-y-1">
-              <p className="font-semibold text-sm text-foreground">{o.contact_name}</p>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <p className="font-semibold text-sm text-foreground">{o.contact_name}</p>
+                {isNewCustomer && (
+                  <Badge
+                    variant="outline"
+                    className="border-blue-500/40 bg-blue-500/10 text-blue-700 dark:text-blue-400 font-semibold text-[10px] px-1.5 py-0.2"
+                  >
+                    New
+                  </Badge>
+                )}
+              </div>
               <p className="text-muted-foreground text-xs font-mono">{o.contact_phone || 'No phone'}</p>
               <div className="flex flex-wrap items-center gap-1 pt-0.5">
+                {isVerified ? (
+                  <Badge
+                    variant="outline"
+                    className="border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[10px] px-1.5 py-0.2"
+                  >
+                    ✓ Verified
+                  </Badge>
+                ) : (
+                  <Badge
+                    variant="outline"
+                    className="border-amber-500/50 bg-amber-500/15 text-amber-800 dark:text-amber-300 font-semibold text-[10px] px-1.5 py-0.2"
+                  >
+                    ⚠️ Needs Verification
+                  </Badge>
+                )}
                 {o.is_out_of_zone ? (
                   <Badge variant="outline" className="border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400 font-bold text-[10px] px-1.5 py-0.2">
                     🟡 Out of Zone
@@ -958,16 +987,26 @@ export function OrdersPage() {
             </Button>
           )}
 
-          {/* Refresh Button */}
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={() => refetch()}
-            className="size-9 ml-auto"
-            title="Refresh Orders"
-          >
-            <RefreshCw className="size-4 text-muted-foreground" />
-          </Button>
+          {/* Realtime Live Indicator & Refresh Button */}
+          <div className="ml-auto flex items-center gap-2">
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 shadow-2xs"
+              title="Real-time order sync is active. New orders and status changes appear automatically without refresh."
+            >
+              <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Live Orders
+            </span>
+
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => refetch()}
+              className="size-9"
+              title="Manual Refresh"
+            >
+              <RefreshCw className="size-4 text-muted-foreground" />
+            </Button>
+          </div>
         </div>
       </div>
 

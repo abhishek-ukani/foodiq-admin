@@ -36,7 +36,6 @@ import {
   useToggleMenuItemAvailable,
   useToggleMenuItemSpecial,
   useToggleMenuItemThaliOption,
-  useTogglePublish,
   useUpdateMenuItemInventory,
 } from '@/features/menu/hooks/use-daily-menu'
 import {
@@ -513,7 +512,6 @@ export function DailyThaliChoicesCard() {
   const toggleAvailable = useToggleMenuItemAvailable(menu?.id)
   const toggleSpecial = useToggleMenuItemSpecial(menu?.id)
   const toggleThaliOption = useToggleMenuItemThaliOption(menu?.id)
-  const togglePublish = useTogglePublish(date, meal)
   const addToGlobal = useAddThaliComponent()
   const removeFromGlobal = useRemoveThaliComponent()
   const updateInventory = useUpdateMenuItemInventory(menu?.id)

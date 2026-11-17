@@ -17,6 +17,8 @@ import {
   ChefHat,
   PackageCheck,
   ReceiptText,
+  ShieldAlert,
+  ShieldCheck,
 } from 'lucide-react'
 import {
   Dialog,
@@ -34,6 +36,7 @@ import { OrderStatusBadge } from '@/components/common/order-status-badge'
 import { OrderStatusTimeline } from '@/components/common/order-status-timeline'
 import { OrderPrintDialog } from '@/features/orders/components/order-print-dialog'
 import { useUpdateOrderDeliveryCharge, useUpdateOrderStatus } from '@/features/orders/hooks/use-orders'
+import { useSetCustomerVerified } from '@/features/customers/hooks/use-customers'
 import type { AdminOrder } from '@/features/orders/services/orders-service'
 import { parseOrderItemDetails, calculateKitchenProduction } from '@/features/orders/utils/order-parser'
 import { CURRENCY_SYMBOL } from '@/constants'
@@ -52,6 +55,7 @@ export function OrderDetailDialog({
 }) {
   const updateStatus = useUpdateOrderStatus()
   const updateCharge = useUpdateOrderDeliveryCharge()
+  const setCustomerVerified = useSetCustomerVerified()
   const [reason, setReason] = useState('')
   const [showReject, setShowReject] = useState(false)
   const [showCancel, setShowCancel] = useState(false)
@@ -169,12 +173,27 @@ export function OrderDetailDialog({
             <div className="rounded-xl border bg-muted/30 p-4 space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2.5">
                 <div>
-                  <h4 className="font-semibold text-sm flex items-center gap-2">
+                  <h4 className="font-semibold text-sm flex items-center gap-2 flex-wrap">
                     {order.contact_name}
                     {order.contact_phone && (
                       <span className="text-xs text-muted-foreground font-mono font-normal">
                         ({order.contact_phone})
                       </span>
+                    )}
+                    {Boolean(order.customer_profile?.is_verified) ? (
+                      <Badge
+                        variant="outline"
+                        className="border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[10px]"
+                      >
+                        ✓ Verified Customer
+                      </Badge>
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className="border-amber-500/50 bg-amber-500/15 text-amber-800 dark:text-amber-300 font-semibold text-[10px]"
+                      >
+                        ⚠️ Unverified Customer
+                      </Badge>
                     )}
                   </h4>
                   {order.zone_label && (
@@ -184,8 +203,36 @@ export function OrderDetailDialog({
                   )}
                 </div>
 
-                {/* Quick Call & WhatsApp Action Buttons */}
-                <div className="flex items-center gap-2">
+                {/* Quick Call, WhatsApp & Verify Action Buttons */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {order.user_id && !order.customer_profile?.is_verified && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs border-amber-500/50 text-amber-800 hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-950/40"
+                      disabled={setCustomerVerified.isPending}
+                      onClick={() =>
+                        setCustomerVerified.mutate({ id: order.user_id, is_verified: true })
+                      }
+                    >
+                      <ShieldCheck className="size-3.5 mr-1 text-emerald-600" />
+                      Verify Customer
+                    </Button>
+                  )}
+                  {order.user_id && Boolean(order.customer_profile?.is_verified) && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 text-xs text-muted-foreground hover:text-amber-700"
+                      disabled={setCustomerVerified.isPending}
+                      onClick={() =>
+                        setCustomerVerified.mutate({ id: order.user_id, is_verified: false })
+                      }
+                    >
+                      <ShieldAlert className="size-3 mr-1 text-amber-600" />
+                      Mark Unverified
+                    </Button>
+                  )}
                   {order.contact_phone && (
                     <>
                       <a

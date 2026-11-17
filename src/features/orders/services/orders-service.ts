@@ -3,7 +3,10 @@ import { getDefaultBranchId } from '@/lib/default-branch'
 import { incrementMenuItemSoldQty, decrementOrderItemsSoldQty } from '@/features/menu/services/daily-menu-service'
 import type { ItemKind, MealType, OrderStatus, PaymentMethod, PaymentStatus, Tables, TablesInsert, TablesUpdate } from '@/types/database.types'
 
-export type AdminOrder = Tables<'orders'> & { order_items: Tables<'order_items'>[] }
+export type AdminOrder = Tables<'orders'> & {
+  order_items: Tables<'order_items'>[]
+  customer_profile?: Tables<'profiles'> | null
+}
 
 export type AdminOrderItemInput = {
   food_item_id: string
@@ -64,7 +67,7 @@ export type FoodItemForOrder = Tables<'food_items'> & {
 export async function fetchOrders(): Promise<AdminOrder[]> {
   const { data, error } = await supabase
     .from('orders')
-    .select('*, order_items(*)')
+    .select('*, order_items(*), customer_profile:profiles!orders_user_id_fkey(*)')
     .order('placed_at', { ascending: false })
   if (error) throw error
   return data as unknown as AdminOrder[]
