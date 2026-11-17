@@ -11,9 +11,12 @@ import {
   MoreHorizontal,
   ReceiptText,
   Search,
+  ShieldAlert,
+  ShieldCheck,
   ShoppingBag,
   Users,
   Wallet,
+  Zap,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { Button } from '@/components/ui/button'
@@ -36,6 +39,7 @@ import {
   useSetCustomerActive,
   useSetCustomerBillingCycle,
   useSetCustomerSubscriptionEligible,
+  useSetCustomerVerified,
 } from '@/features/customers/hooks/use-customers'
 import {
   type CustomerWithKhata,
@@ -75,6 +79,7 @@ export function CustomersPage() {
   const setActive = useSetCustomerActive()
   const setSubEligible = useSetCustomerSubscriptionEligible()
   const setBillingCycle = useSetCustomerBillingCycle()
+  const setVerified = useSetCustomerVerified()
 
   const [search, setSearch] = useState('')
   const activeCycleFilter = searchParams.get('cycle') || searchParams.get('filter') || 'all'
@@ -132,9 +137,15 @@ export function CustomersPage() {
     if (!customers) return []
     let list = customers
 
-    // 1. Billing Cycle / Dues Filter
+    // 1. Status / Billing Cycle Filter
     if (activeCycleFilter === 'pending' || activeCycleFilter === 'dues') {
       list = list.filter((c) => c.pending_balance > 0)
+    } else if (activeCycleFilter === 'unverified') {
+      list = list.filter((c) => !c.is_verified)
+    } else if (activeCycleFilter === 'verified') {
+      list = list.filter((c) => Boolean(c.is_verified))
+    } else if (activeCycleFilter === 'auto_accept') {
+      list = list.filter((c) => Boolean(c.is_subscription_eligible))
     } else if (activeCycleFilter === 'daily') {
       list = list.filter((c) => c.billing_cycle === 'daily')
     } else if (activeCycleFilter === 'weekly') {
@@ -159,17 +170,31 @@ export function CustomersPage() {
       {
         accessorKey: 'full_name',
         header: 'Customer',
-        cell: ({ row }) => (
-          <div className="flex items-center gap-3">
-            <Avatar className="size-9">
-              <AvatarFallback>{(row.original.full_name ?? row.original.email ?? '?')[0]}</AvatarFallback>
-            </Avatar>
-            <div>
-              <p className="font-medium text-foreground">{row.original.full_name ?? 'Unnamed'}</p>
-              <p className="text-muted-foreground text-xs">{row.original.email}</p>
+        cell: ({ row }) => {
+          const c = row.original
+          const isNew = (c.total_orders ?? 0) <= 1
+          return (
+            <div className="flex items-center gap-3">
+              <Avatar className="size-9">
+                <AvatarFallback>{(c.full_name ?? c.email ?? '?')[0]}</AvatarFallback>
+              </Avatar>
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <p className="font-medium text-foreground">{c.full_name ?? 'Unnamed'}</p>
+                  {isNew && (
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] px-1.5 py-0 border-blue-500/40 bg-blue-500/10 text-blue-700 dark:text-blue-400 font-semibold"
+                    >
+                      New
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-muted-foreground text-xs">{c.email}</p>
+              </div>
             </div>
-          </div>
-        ),
+          )
+        },
       },
       {
         accessorKey: 'phone',
@@ -274,12 +299,44 @@ export function CustomersPage() {
       },
       {
         accessorKey: 'is_active',
-        header: 'Status',
-        cell: ({ row }) => (
-          <Badge variant={row.original.is_active ? 'secondary' : 'outline'}>
-            {row.original.is_active ? 'Active' : 'Inactive'}
-          </Badge>
-        ),
+        header: 'Status & Verification',
+        cell: ({ row }) => {
+          const c = row.original
+          const isVerified = Boolean(c.is_verified)
+          const isAutoAccept = Boolean(c.is_subscription_eligible)
+          return (
+            <div className="flex flex-col gap-1 items-start">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <Badge variant={c.is_active ? 'secondary' : 'outline'}>
+                  {c.is_active ? 'Active' : 'Inactive'}
+                </Badge>
+                {isAutoAccept && (
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] border-purple-500/40 bg-purple-500/10 text-purple-700 dark:text-purple-300 font-semibold"
+                  >
+                    ⚡ Auto-Accept
+                  </Badge>
+                )}
+              </div>
+              {isVerified ? (
+                <Badge
+                  variant="outline"
+                  className="text-[10px] border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-medium"
+                >
+                  ✓ Verified
+                </Badge>
+              ) : (
+                <Badge
+                  variant="outline"
+                  className="text-[10px] border-amber-500/50 bg-amber-500/15 text-amber-800 dark:text-amber-300 font-semibold"
+                >
+                  ⚠️ Needs Verification
+                </Badge>
+              )}
+            </div>
+          )
+        },
       },
       {
         id: 'actions',
@@ -327,6 +384,26 @@ export function CustomersPage() {
                   <DropdownMenuItem onClick={() => navigate(ADMIN_ROUTES.customerDetail(row.original.id))}>
                     View details & Khata
                   </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() =>
+                      setVerified.mutate({
+                        id: row.original.id,
+                        is_verified: !row.original.is_verified,
+                      })
+                    }
+                  >
+                    {row.original.is_verified ? (
+                      <>
+                        <ShieldAlert className="size-4 mr-2 text-amber-600" />
+                        Mark as Unverified
+                      </>
+                    ) : (
+                      <>
+                        <ShieldCheck className="size-4 mr-2 text-emerald-600" />
+                        Verify Customer
+                      </>
+                    )}
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={() =>
@@ -336,9 +413,10 @@ export function CustomersPage() {
                       })
                     }
                   >
+                    <Zap className="size-4 mr-2 text-purple-600" />
                     {row.original.is_subscription_eligible
-                      ? 'Disable Subscriptions'
-                      : 'Enable Subscriptions'}
+                      ? 'Disable Auto-Accept (Daily Orders)'
+                      : 'Enable Auto-Accept (Daily Orders)'}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() =>
@@ -359,6 +437,18 @@ export function CustomersPage() {
 
   const pendingCustomersCount = useMemo(() => {
     return customers ? customers.filter((c) => c.pending_balance > 0).length : 0
+  }, [customers])
+
+  const unverifiedCount = useMemo(() => {
+    return customers ? customers.filter((c) => !c.is_verified).length : 0
+  }, [customers])
+
+  const verifiedCount = useMemo(() => {
+    return customers ? customers.filter((c) => Boolean(c.is_verified)).length : 0
+  }, [customers])
+
+  const autoAcceptCount = useMemo(() => {
+    return customers ? customers.filter((c) => Boolean(c.is_subscription_eligible)).length : 0
   }, [customers])
 
   return (
@@ -471,7 +561,7 @@ export function CustomersPage() {
           <Button
             size="sm"
             variant={activeCycleFilter === 'all' ? 'default' : 'outline'}
-            className="text-xs rounded-full h-8"
+            className="text-xs rounded-full h-8 shrink-0"
             onClick={() => setSearchParams({})}
           >
             All Customers ({customers?.length ?? 0})
@@ -479,21 +569,56 @@ export function CustomersPage() {
 
           <Button
             size="sm"
+            variant={activeCycleFilter === 'unverified' ? 'default' : 'outline'}
+            className={`text-xs rounded-full h-8 shrink-0 ${
+              activeCycleFilter !== 'unverified' && unverifiedCount > 0
+                ? 'border-amber-500/40 text-amber-700 dark:text-amber-400 bg-amber-500/5'
+                : ''
+            }`}
+            onClick={() => setSearchParams({ filter: 'unverified' })}
+          >
+            ⚠️ Needs Verification ({unverifiedCount})
+          </Button>
+
+          <Button
+            size="sm"
+            variant={activeCycleFilter === 'verified' ? 'default' : 'outline'}
+            className="text-xs rounded-full h-8 shrink-0"
+            onClick={() => setSearchParams({ filter: 'verified' })}
+          >
+            ✓ Verified ({verifiedCount})
+          </Button>
+
+          <Button
+            size="sm"
+            variant={activeCycleFilter === 'auto_accept' ? 'default' : 'outline'}
+            className={`text-xs rounded-full h-8 shrink-0 ${
+              activeCycleFilter !== 'auto_accept' && autoAcceptCount > 0
+                ? 'border-purple-500/40 text-purple-700 dark:text-purple-300 bg-purple-500/5'
+                : ''
+            }`}
+            onClick={() => setSearchParams({ filter: 'auto_accept' })}
+          >
+            ⚡ Auto-Accept Active ({autoAcceptCount})
+          </Button>
+
+          <Button
+            size="sm"
             variant={activeCycleFilter === 'pending' || activeCycleFilter === 'dues' ? 'default' : 'outline'}
-            className={`text-xs rounded-full h-8 ${
+            className={`text-xs rounded-full h-8 shrink-0 ${
               activeCycleFilter !== 'pending' && pendingCustomersCount > 0
                 ? 'border-amber-500/40 text-amber-700 dark:text-amber-400 bg-amber-500/5'
                 : ''
             }`}
             onClick={() => setSearchParams({ filter: 'pending' })}
           >
-            Has Pending Dues ({pendingCustomersCount})
+            Has Dues ({pendingCustomersCount})
           </Button>
 
           <Button
             size="sm"
             variant={activeCycleFilter === 'daily' ? 'default' : 'outline'}
-            className="text-xs rounded-full h-8"
+            className="text-xs rounded-full h-8 shrink-0"
             onClick={() => setSearchParams({ cycle: 'daily' })}
           >
             Daily Cycle
@@ -502,7 +627,7 @@ export function CustomersPage() {
           <Button
             size="sm"
             variant={activeCycleFilter === 'weekly' ? 'default' : 'outline'}
-            className="text-xs rounded-full h-8"
+            className="text-xs rounded-full h-8 shrink-0"
             onClick={() => setSearchParams({ cycle: 'weekly' })}
           >
             Weekly Cycle
@@ -511,7 +636,7 @@ export function CustomersPage() {
           <Button
             size="sm"
             variant={activeCycleFilter === 'monthly' ? 'default' : 'outline'}
-            className="text-xs rounded-full h-8"
+            className="text-xs rounded-full h-8 shrink-0"
             onClick={() => setSearchParams({ cycle: 'monthly' })}
           >
             Monthly Cycle

@@ -13,11 +13,14 @@ import {
   Phone,
   Plus,
   ReceiptText,
+  ShieldCheck,
+  Zap,
   ShoppingBag,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -35,8 +38,11 @@ import {
   useCustomer,
   useCustomerAddresses,
   useCustomerOrders,
+  useSetAddressRouteApproved,
   useSetCustomerActive,
   useSetCustomerBillingCycle,
+  useSetCustomerSubscriptionEligible,
+  useSetCustomerVerified,
 } from '@/features/customers/hooks/use-customers'
 import {
   CollectPaymentDialog,
@@ -53,6 +59,9 @@ export function CustomerDetailPage() {
   const { data: addresses } = useCustomerAddresses(id)
   const setActive = useSetCustomerActive()
   const setBillingCycle = useSetCustomerBillingCycle()
+  const setSubEligible = useSetCustomerSubscriptionEligible()
+  const setVerified = useSetCustomerVerified()
+  const setRouteApproved = useSetAddressRouteApproved()
 
   const [createOrderOpen, setCreateOrderOpen] = useState(false)
   const [orderFilter, setOrderFilter] = useState<'all' | 'unpaid' | 'paid'>('all')
@@ -261,6 +270,75 @@ export function CustomerDetailPage() {
         </CardContent>
       </Card>
 
+      {/* ── Customer Trust & Auto-Accept Controls ── */}
+      <Card className="border-border/80">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <ShieldCheck className="size-4 text-primary" />
+            Verification & Auto-Accept Controls
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Manage order intake rules for this customer. Auto-acceptance triggers when both this toggle and the delivery address are approved.
+          </p>
+        </CardHeader>
+        <CardContent className="grid gap-4 sm:grid-cols-2">
+          {/* Identity Verification */}
+          <div className="flex items-start justify-between gap-3 p-3.5 rounded-xl border bg-muted/20">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold">Identity Verification</span>
+                {customer.is_verified ? (
+                  <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 font-medium">
+                    ✓ Verified
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-[10px] bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-500/40 font-semibold">
+                    ⚠️ Needs Verification
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Confirm phone number and trust profile. Unverified customer orders require staff phone verification.
+              </p>
+            </div>
+            <Switch
+              checked={Boolean(customer.is_verified)}
+              onCheckedChange={(checked) => setVerified.mutate({ id: customer.id, is_verified: checked })}
+            />
+          </div>
+
+          {/* Auto-Accept Daily Orders */}
+          <div className="flex items-start justify-between gap-3 p-3.5 rounded-xl border bg-muted/20">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold flex items-center gap-1">
+                  <Zap className="size-3.5 text-purple-600 dark:text-purple-400" />
+                  Auto-Accept Daily Orders
+                </span>
+                {customer.is_subscription_eligible ? (
+                  <Badge variant="outline" className="text-[10px] bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30 font-medium">
+                    Active
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                    Manual Review
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                When enabled, daily lunch/dinner orders to route-approved addresses bypass pending and enter kitchen instantly (within bulk caps).
+              </p>
+            </div>
+            <Switch
+              checked={Boolean(customer.is_subscription_eligible)}
+              onCheckedChange={(checked) =>
+                setSubEligible.mutate({ id: customer.id, is_subscription_eligible: checked })
+              }
+            />
+          </div>
+        </CardContent>
+      </Card>
+
       {/* ── 4 KPI Stat Cards ── */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
@@ -326,25 +404,129 @@ export function CustomerDetailPage() {
         </Card>
       </div>
 
-      {/* ── Saved Addresses ── */}
-      {addresses?.length ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Saved Addresses</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {addresses.map((address) => (
-              <div key={address.id} className="flex items-start gap-2 text-sm">
-                <MapPin className="text-muted-foreground mt-0.5 size-4 shrink-0" aria-hidden />
-                <span>
-                  <span className="font-medium capitalize">{address.label}: </span>
-                  {address.address_line1}, {address.city}, {address.pincode}
-                </span>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      ) : null}
+      {/* ── Saved Delivery Addresses & Route Approval ── */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <CardTitle className="text-base flex items-center gap-2">
+                <MapPin className="size-4 text-primary" />
+                Delivery Addresses & Route Approvals
+              </CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Approve specific corridor addresses for instant auto-acceptance. Any address update by the customer resets approval for safety.
+              </p>
+            </div>
+            <Badge variant="outline" className="w-fit text-xs font-normal">
+              {addresses?.length ?? 0} {addresses?.length === 1 ? 'address' : 'addresses'} saved
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {!addresses?.length ? (
+            <div className="py-6 text-center text-sm text-muted-foreground border border-dashed rounded-xl space-y-1">
+              <p>No standalone addresses saved in customer address book.</p>
+              {orders?.[0]?.address_line1 && (
+                <p className="text-xs text-muted-foreground/80">
+                  Last order delivered to: <span className="font-medium text-foreground">{orders[0].address_line1}, {orders[0].city} - {orders[0].pincode}</span>
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {addresses.map((address) => {
+                const isApproved = Boolean(address.is_route_approved)
+                return (
+                  <div
+                    key={address.id}
+                    className={`p-4 rounded-xl border transition-colors flex flex-col justify-between gap-3 ${
+                      isApproved
+                        ? 'border-emerald-500/30 bg-emerald-500/[0.02]'
+                        : 'border-border/70 bg-card'
+                    }`}
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-sm capitalize">{address.label}</span>
+                          {address.is_default && (
+                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                              Default
+                            </Badge>
+                          )}
+                          {address.meal_type_tag && (
+                            <Badge variant="outline" className="text-[10px] capitalize px-1.5 py-0">
+                              {address.meal_type_tag}
+                            </Badge>
+                          )}
+                          {address.preferred_time && (
+                            <Badge variant="outline" className="text-[10px] text-muted-foreground px-1.5 py-0">
+                              {address.preferred_time}
+                            </Badge>
+                          )}
+                        </div>
+
+                        {isApproved ? (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 font-medium"
+                          >
+                            ✓ Route Approved
+                          </Badge>
+                        ) : (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30 font-medium"
+                          >
+                            ⚠️ Unapproved Route
+                          </Badge>
+                        )}
+                      </div>
+
+                      <div className="text-xs text-muted-foreground space-y-0.5">
+                        <p className="text-foreground font-medium">{address.address_line1}</p>
+                        {address.address_line2 && <p>{address.address_line2}</p>}
+                        {address.landmark && (
+                          <p>
+                            <span className="text-muted-foreground/80">Landmark:</span> {address.landmark}
+                          </p>
+                        )}
+                        {address.sublocality && (
+                          <p>
+                            <span className="text-muted-foreground/80">Area:</span> {address.sublocality}
+                          </p>
+                        )}
+                        <p>
+                          {address.city} - {address.pincode}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-medium">Route Approval</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {isApproved ? 'Auto-accept enabled for this location' : 'Orders require kitchen approval'}
+                        </p>
+                      </div>
+                      <Switch
+                        checked={isApproved}
+                        onCheckedChange={(checked) =>
+                          setRouteApproved.mutate({
+                            addressId: address.id,
+                            is_route_approved: checked,
+                            customerId: customer.id,
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* ── Order History & Khata Payment Ledger ── */}
       <Card>

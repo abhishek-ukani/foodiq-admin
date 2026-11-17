@@ -61,3 +61,6 @@ export async function broadcastCatalogUpdate(reason: string = 'updated'): Promis
     console.warn('[RealtimeSync] Could not send catalog update broadcast:', error)
   }
 }
+
+// Re-export orders realtime utilities
+export * from '@/lib/orders-realtime'

@@ -63,6 +63,7 @@ type ProfileRow = {
   date_of_birth: string | null
   is_active: boolean
   is_subscription_eligible: boolean
+  is_verified?: boolean
   total_orders: number
   total_spent: number
   last_order_at: string | null
@@ -163,6 +164,7 @@ type AddressRow = {
   meal_type_tag: 'lunch' | 'dinner' | 'both'
   preferred_time: string | null
   is_default: boolean
+  is_route_approved?: boolean
   created_at: string
   updated_at: string
 }

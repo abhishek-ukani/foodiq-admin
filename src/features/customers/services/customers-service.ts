@@ -323,13 +323,24 @@ export async function fetchCustomerOrders(userId: string): Promise<Tables<'order
 }
 
 export async function fetchCustomerAddresses(userId: string): Promise<Tables<'addresses'>[]> {
+  // 1. Try admin RPC (bypasses RLS safely for admins)
+  try {
+    const { data: rpcData, error: rpcErr } = await supabase.rpc('admin_get_customer_addresses' as any, {
+      p_user_id: userId,
+    })
+    if (!rpcErr && Array.isArray(rpcData) && rpcData.length > 0) {
+      return rpcData as Tables<'addresses'>[]
+    }
+  } catch {}
+
+  // 2. Direct table select (works once RLS policy "Admins full access to addresses" is applied)
   const { data, error } = await supabase
     .from('addresses')
     .select('*')
     .eq('user_id', userId)
     .order('is_default', { ascending: false })
   if (error) throw error
-  return data
+  return data || []
 }
 
 export async function setCustomerActive(id: string, is_active: boolean): Promise<void> {
@@ -345,5 +356,37 @@ export async function setCustomerSubscriptionEligible(
     .from('profiles')
     .update({ is_subscription_eligible })
     .eq('id', id)
+  if (error) throw error
+}
+
+export async function setCustomerVerified(
+  id: string,
+  is_verified: boolean,
+): Promise<void> {
+  const { error } = await supabase
+    .from('profiles')
+    .update({ is_verified } as any)
+    .eq('id', id)
+  if (error) throw error
+}
+
+export async function setAddressRouteApproved(
+  addressId: string,
+  is_route_approved: boolean,
+): Promise<void> {
+  // 1. Try admin RPC
+  try {
+    const { error: rpcErr } = await supabase.rpc('admin_set_address_route_approved' as any, {
+      p_address_id: addressId,
+      p_is_route_approved: is_route_approved,
+    })
+    if (!rpcErr) return
+  } catch {}
+
+  // 2. Direct table update
+  const { error } = await supabase
+    .from('addresses')
+    .update({ is_route_approved } as any)
+    .eq('id', addressId)
   if (error) throw error
 }
