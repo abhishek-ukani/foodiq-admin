@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ADMIN_ROUTES } from '@/constants'
+import { SidebarFooter } from '@/components/layout/sidebar-footer'
 
 /** Add each section's nav item here as it ships — keep this list honest with what's actually built. */
 export const NAV_ITEMS = [
@@ -39,14 +40,14 @@ export const NAV_ITEMS = [
 
 export function Sidebar() {
   return (
-    <aside className="bg-card hidden w-64 shrink-0 flex-col border-r lg:flex">
+    <aside className="bg-card sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r lg:flex">
       <div className="flex items-center gap-2.5 border-b px-6 py-5">
         <div className="bg-primary text-primary-foreground flex size-9 items-center justify-center rounded-lg">
           <ChefHat className="size-4.5" aria-hidden />
         </div>
         <span className="font-display text-lg font-semibold">FoodIQ</span>
       </div>
-      <nav className="flex-1 space-y-1 px-3 py-4">
+      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
         {NAV_ITEMS.map((item) => (
           <NavLink
             key={item.to}
@@ -66,6 +67,7 @@ export function Sidebar() {
           </NavLink>
         ))}
       </nav>
+      <SidebarFooter />
     </aside>
   )
 }
